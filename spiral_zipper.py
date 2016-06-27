@@ -20,7 +20,7 @@ class SpiralZipper:
 		try:
 			sz.ser = serial.Serial('/dev/ttyACM0',9600)
 		except serial.SerialException:
-			sz.ser = serial.Serial('/dev/ttyACM1',9600)
+			sz.ser = serial.Serial('/dev/ttyACM1',9600) 
 		#sz.wakeup_configz(c)
             # Initalize Spiral Zipper Settings #TODO: set these
             #L0 = Lengths[0]#0.3 #length of spiral zipper column
