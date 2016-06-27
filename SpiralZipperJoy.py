@@ -61,10 +61,10 @@ if __name__=="__main__":
     Ky = 0.005 #^
     #gains to tune error and compensate for each module ability
     # be careful not to make these too large as the torque may saturate and the controller will not work
-
-    K1 = 0.5 # P- controller gain    MX CKbot requires less gain
-    K2 = 1.5 #^
-    K3 = 2.0 # this module seems to be lagging behind
+    Motor_gain=3.0
+    K1 = 0.5*Motor_gain # P- controller gain    MX CKbot requires less gain
+    K2 = 1.5*Motor_gain #^
+    K3 = 2.0*Motor_gain # this module seems to be lagging behind
     trial=1.5 #Common multiplier for Ki
     #Integral Control coefficients
     Ki_1 = 0.005*trial
