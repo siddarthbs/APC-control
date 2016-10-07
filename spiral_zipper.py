@@ -16,6 +16,8 @@ class SpiralZipper:
         #create spiral zipper object
         #physical notes
         #sz ckbot direction: CCW subtracts tether and CW adds/releases tether.
+		sz.startposition = start_position
+		sz.start_detected = False
 		sz.tether_subtract_CCW = True
 		try:
 			sz.ser = serial.Serial('/dev/ttyACM0',9600)
@@ -166,6 +168,29 @@ class SpiralZipper:
 		#get goal information
 		return sz.goal
 
+	def set_Motor_Gains(sz,K):
+		#set motor gains
+		sz.K = K
+
+	def set_Integral_Gains(sz,Ki):
+		#set Ki values for different levels
+		sz.Ki = Ki
+
+	def set_Integral_Thresholds(sz, Ki_Thresholds):
+		#set threshold values for levels of integral control
+		sz.Ki_t = Ki_Thresholds
+
+	def get_Motor_Gains(sz):
+		#get motor gain information
+		return sz.K
+
+	def get_Integral_Gains(sz):
+		#get integral gain information
+		return sz.Ki
+
+	def get_Integral_Thresholds(sz):
+		#Get integral thresholds information
+		return sz.Ki_t
 
 	def get_tether_goal(sz):
 		#convert cartesian goal to tether length goal
@@ -519,4 +544,219 @@ class SpiralZipper:
 		z = (sz.L[3]**2-y**2-x**2)**0.5
 		position_xyz = np.array([x,y,z])+np.array(sz.p[3]) # shift offset
 		return position_xyz
+
+	def PI_control(sz,goal,c):
+
+		K_Motor = sz.get_Motor_Gains()
+		Ki_Integral = sz.get_Integral_Gains()
+		Ki_Threshold = sz.get_Integral_Thresholds()
+
+		sz.goal_changed = False
+
+		if(sz.goal != goal):
+			sz.goal_changed = True
+			sz.start_detected = False
+
+		if(goal == sz.startposition and sz.start_detected == False):
+			sz.start_detected = True
+			sz.goal_changed = True
+		else:
+			sz.goal_changed = False
+
+		if(sz.goal_changed):
+			sz.goal = goal
+			sz.errorsum = [0, 0, 0]
+			sz.goal_start = now()
+			sz.target_achieved = [0, 0, 0]
+			sz.target_reached = False
+
+		sz.update_state(sz,c)
+
+		deltas_tether = sz.get_error_state()
+		print "Errors are:"
+		print deltas_tether
+
+		# Integral Control for tether 1
+		if (abs(deltas_tether[0]) < Ki_Threshold[0] and abs(deltas_tether[0]) > Ki_Threshold[1]):  # Integral Control Accuracy level 1
+			Ki_t1 = Ki_Integral[0]
+			print " Integral Control Tether 1 level 1"
+			sz.errorsum[0] = sz.errorsum[0] + deltas_tether[0]
+			sz.target_achieved[0] = 0
+
+		elif (abs(deltas_tether[0]) <= Ki_Threshold[1] and abs(deltas_tether[0]) > Ki_Threshold[2]):  # Integral Control Accuracy level 2
+			Ki_t1 = Ki_Integral[1]
+			print " Integral Control Tether 1 level 2"
+			sz.errorsum[0] = sz.errorsum[0] + deltas_tether[0]
+			sz.target_achieved[0] = 0
+
+		elif (abs(deltas_tether[0]) <= Ki_Threshold[2] and abs(deltas_tether[0]) > Ki_Threshold[3]):  # Integral Control Accuracy level 3
+			Ki_t1 = Ki_Integral[2]
+			print " Integral Control Tether 1 level 3"
+			sz.errorsum[0] = sz.errorsum[0] + deltas_tether[0]
+			sz.target_achieved[0] = 0
+
+		elif (abs(deltas_tether[0]) <= Ki_Threshold[3] and abs(deltas_tether[0]) > Ki_Threshold[4]):  # Integral Control Accuracy level 4
+			Ki_t1 = Ki_Integral[3]
+			print " Integral Control Tether 1 level 4 (Target Acquired)"
+			sz.errorsum[0] = sz.errorsum[0] + deltas_tether[0]
+			sz.target_achieved[0] = 1  # Assume target achieved
+
+
+		elif (abs(deltas_tether[0]) <= Ki_Threshold[4] and abs(deltas_tether[0]) >= 0):  # Integral Control Accuracy level 5
+			Ki_t1 = 0
+			print "Target acquired tether 1"
+			sz.errorsum[0] = 0
+			K_Motor[0]= 0
+			sz.target_achieved[0] = 1  # Assume target achieved
+
+		else:  # No Integral Control yet
+			Ki_t1 = 0
+			print " No integral tether 1"
+			sz.target_achieved[0] = 0
+
+		# Integral Control for tether 2
+		if (abs(deltas_tether[1]) < Ki_Threshold[0] and abs(deltas_tether[1]) > Ki_Threshold[1]):  # Integral Control Accuracy level 1
+			Ki_t2 = Ki_Integral[0]
+			print " Integral Control Tether 2 level 1"
+			sz.errorsum[1] = sz.errorsum[1] + deltas_tether[1]
+			sz.target_achieved[1] = 0
+
+		elif (abs(deltas_tether[1]) <= Ki_Threshold[1] and abs(deltas_tether[1]) > Ki_Threshold[2]):  # Integral Control Accuracy level 2
+			Ki_t2 = Ki_Integral[1]
+			print " Integral Control Tether 2 level 2"
+			sz.errorsum[1] = sz.errorsum[1] + deltas_tether[1]
+			sz.target_achieved[1] = 0
+
+		elif (abs(deltas_tether[1]) <= Ki_Threshold[2] and abs(deltas_tether[1]) > Ki_Threshold[3]):  # Integral Control Accuracy level 3
+			Ki_t2 = Ki_Integral[2]
+			print " Integral Control Tether 2 level 3"
+			sz.errorsum[1] = sz.errorsum[1] + deltas_tether[1]
+			sz.target_achieved[1] = 0
+
+		elif (abs(deltas_tether[1]) <= Ki_Threshold[3] and abs(deltas_tether[1]) > Ki_Threshold[4]):  # Integral Control Accuracy level 4
+			Ki_t2 = Ki_Integral[3]
+			print " Integral Control Tether 2 level 4 (Target Acquired)"
+			sz.errorsum[1] = sz.errorsum[1] + deltas_tether[1]
+			sz.target_achieved[1] = 1  # Assume target achieved
+
+
+		elif (abs(deltas_tether[1]) <= Ki_Threshold[4] and abs(deltas_tether[1]) >= 0):  # Integral Control Accuracy level 5
+			Ki_t2 = 0
+			print "Target acquired tether 2"
+			sz.errorsum[1] = 0
+			K_Motor[1]= 0
+			sz.target_achieved[1] = 1  # Assume target achieved
+
+		else:  # No Integral Control yet
+			Ki_t2 = 0
+			print " No integral tether 2"
+			sz.target_achieved[1] = 0
+
+		# Integral Control for tether 3
+		if (abs(deltas_tether[2]) < Ki_Threshold[0] and abs(deltas_tether[2]) > Ki_Threshold[1]):  # Integral Control Accuracy level 1
+			Ki_t3 = Ki_Integral[0]
+			print " Integral Control Tether 3 level 1"
+			sz.errorsum[2] = sz.errorsum[2] + deltas_tether[2]
+			sz.target_achieved[2] = 0
+
+		elif (abs(deltas_tether[2]) <= Ki_Threshold[1] and abs(deltas_tether[2]) > Ki_Threshold[2]):  # Integral Control Accuracy level 2
+			Ki_t3 = Ki_Integral[1]
+			print " Integral Control Tether 3 level 2"
+			sz.errorsum[2] = sz.errorsum[2] + deltas_tether[2]
+			sz.target_achieved[2] = 0
+
+		elif (abs(deltas_tether[2]) <= Ki_Threshold[2] and abs(deltas_tether[2]) > Ki_Threshold[3]):  # Integral Control Accuracy level 3
+			Ki_t3 = Ki_Integral[2]
+			print " Integral Control Tether 3 level 3"
+			sz.errorsum[2] = sz.errorsum[2] + deltas_tether[2]
+			sz.target_achieved[2] = 0
+
+		elif (abs(deltas_tether[2]) <= Ki_Threshold[3] and abs(deltas_tether[2]) > Ki_Threshold[4]):  # Integral Control Accuracy level 4
+			Ki_t3 = Ki_Integral[3]
+			print " Integral Control Tether 3 level 4 (Target Acquired)"
+			sz.errorsum[2] = sz.errorsum[2] + deltas_tether[2]
+			sz.target_achieved[2] = 1  # Assume target achieved
+
+
+		elif (abs(deltas_tether[2]) <= Ki_Threshold[4] and abs(deltas_tether[2]) >= 0):  # Integral Control Accuracy level 5
+			Ki_t3 = 0
+			print "Target acquired tether 3"
+			sz.errorsum[2] = 0
+			K_Motor[2]= 0
+			sz.target_achieved[2] = 1  # Assume target achieved
+
+		else:  # No Integral Control yet
+			Ki_t3 = 0
+			print " No integral tether 3"
+			sz.target_achieved[2] = 0
+
+
+		# Check if reached target position and calculate time
+		if ((sz.target_achieved[0] is 1) and (sz.target_achieved[1] is 1) and (sz.target_achieved[2] is 1)):
+			if (sz.target_reached is False):
+				sz.goal_stop = now()
+			print "Goal reached in %f seconds." % (sz.goal_stop - sz.goal_start)
+			sz.target_reached = True
+
+
+		t1 = (deltas_tether[0] + sz.errorsum[0] * Ki_t1 ) * K_Motor[0]  # control input for motor 1 with gain factored in
+
+		t2 = (deltas_tether[1] + sz.errorsum[1] * Ki_t2 ) * K_Motor[1]  # control input for motor 2 with gain factored in
+
+		t3 = (deltas_tether[2] + sz.errorsum[2] * Ki_t3 ) * K_Motor[2]  # control input for motor 3 with gain factored in
+
+		command_torques=[t1, t2, t3]
+
+		return command_torques
+
+
+
+
+
+	def actuate_Motors(sz, c, command_torques):
+
+		if(m.isnan(command_torques[0])):
+			command_torques[0]=0
+		if(m.isnan(command_torques[1])):
+			command_torques[1]=0
+		if(m.isnan(command_torques[2])):
+			command_torques[2]=0
+
+		torque_Threshold = 0.02
+
+		if sz.tether_subtract_CCW:
+			# t1=-0.0001
+
+
+			if command_torques[0] < 0:
+				c.at.T1.set_torque_mx(-1.1 * command_torques[0])
+			else:
+				if ((abs(command_torques(1)) < torque_threshold) and (abs(command_torques[2]) < torque_threshold) or (abs(command_torques[0]) < 0.007)):  # other torques are insignificant
+					command_torques[0] = 0;
+				c.at.T1.set_torque_mx(-0.5 * command_torques[0])
+			if command_torques[1] < 0:
+				c.at.T2.set_torque(-1.4 * command_torques[1])
+			else:
+				if ((abs(command_torques[0]) < torque_threshold) and (abs(command_torques[2]) < torque_threshold)):  # other torques are insignificant
+					command_torques[1] = 0;
+				c.at.T2.set_torque(-command_torques[1])
+			if command_torques[2] < 0:
+				c.at.T3.set_torque(-1.4 * command_torques[2])
+			else:
+				if ((abs(command_torques[0]) < torque_threshold) and (abs(command_torques[1]) < torque_threshold)):  # other torques are insignificant
+					command_torques[2] = 0;
+				c.at.T3.set_torque(-command_torques[2])
+
+		else:
+			c.at.T1.set_torque(command_torques[0])
+			c.at.T2.set_torque(command_torques[1])
+			c.at.T3.set_torque(command_torques[2])
+
+
+
+
+
+
+
+
 

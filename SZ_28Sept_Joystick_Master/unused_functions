@@ -1,0 +1,313 @@
+	'''def slack_remove(sz, c):
+		print "Removing slacks..."
+		T1_slack=True
+		T2_slack=True
+		T3_slack=True
+		unwind_time=0.3
+		deflection_small=0.05
+		deflection_large=0.10
+
+		grav_comps = sz.get_sensor_readings() # read GRAVITY components 
+		desired_comps = [0.0, 0.0, 9.8]
+		#STEP_1 remove slacks
+		if (grav_comps[1]<0): # leaning away from T1
+			#Unwind T2 and T3 a bit
+			c.at.T2.set_torque(-0.1) #T2
+			sleep(unwind_time)
+			c.at.T2.set_torque(0)
+			c.at.T3.set_torque(-0.1) #T3
+			sleep(unwind_time)
+			c.at.T3.set_torque(0)
+			#Wind T1 till deflection sensed => 				T1 slack removed.
+			grav_sensed_init = sz.get_sensor_readings() #read GRAVITY components 
+			pos_old = c.at.T1.get_pos()
+			while(T1_slack):
+				grav_sensed_curr = sz.get_sensor_readings() #read GRAVITY components 
+				
+				if(grav_sensed_curr[1]-grav_sensed_init[1] > deflection_large):
+					T1_slack=False
+					print "T1 Slack removed."
+					break				
+				c.at.T1.set_torque_mx(0.05) 
+				pos_new = c.at.T1.get_pos()
+				change = sz.measure_dtheta(pos_new, pos_old)
+				print "Delta Theta is : %f"%change
+				pos_old=pos_new
+			c.at.T1.set_torque_mx(0) #stop
+			
+			if(grav_comps[0]<0): #leaning away from T2
+				#unwind T3 a bit
+				c.at.T3.set_torque(-0.1) #T3
+				sleep(unwind_time)
+				c.at.T3.set_torque(0)
+				#wind T2 till deflection sensed =>				T2 slack removed
+				pos_old = c.at.T2.get_pos()
+				grav_sensed_init = sz.get_sensor_readings() #read GRAVITY components 
+				while(T2_slack):
+					grav_sensed_curr = sz.get_sensor_readings() #read GRAVITY components 
+					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_large):
+						T2_slack=False
+						print "T2 Slack removed."
+						break				
+					c.at.T2.set_torque(0.1)
+					pos_new = c.at.T2.get_pos()
+					change = sz.measure_dtheta(pos_new, pos_old)
+					print "Delta Theta is : %f" % change
+					pos_old = pos_new
+				c.at.T2.set_torque(0) #stop
+				#wind T3 till *small*deflection sensed =>		T3 slack removed
+				pos_old = c.at.T3.get_pos()
+				grav_sensed_init = sz.get_sensor_readings() #read GRAVITY components 
+				while(T3_slack):
+					grav_sensed_curr = sz.get_sensor_readings() #read GRAVITY components 
+					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_small):
+						T3_slack=False
+						print "T3 Slack removed."
+						break				
+					c.at.T3.set_torque(0.1)
+					pos_new = c.at.T3.get_pos()
+					change = sz.measure_dtheta(pos_new, pos_old)
+					print "Delta Theta is : %f" % change
+					pos_old = pos_new
+				c.at.T3.set_torque(0) #stop
+				
+			elif(grav_comps[0]>0): #leaning away from T3
+				#unwind T2 a bit
+				c.at.T2.set_torque(-0.1) #T2
+				sleep(unwind_time)
+				c.at.T2.set_torque(0)
+				
+				# wind T3 till deflection sensed =>				T3 slack removed
+				grav_sensed_init = sz.get_sensor_readings() #read GRAVITY components
+				pos_old = c.at.T3.get_pos()
+				while(T3_slack):
+					grav_sensed_curr = sz.get_sensor_readings() #read GRAVITY components 
+					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_large):
+						T3_slack=False
+						print "T3 Slack removed."
+						break				
+					c.at.T3.set_torque(0.1)
+					pos_new = c.at.T3.get_pos()
+					change = sz.measure_dtheta(pos_new, pos_old)
+					print "Delta Theta is : %f" % change
+					pos_old = pos_new
+				c.at.T3.set_torque(0) #stop
+				# wind T2 till *small* deflection sensed =>		T2 slack removed
+				grav_sensed_init = sz.get_sensor_readings() #read GRAVITY components
+				pos_old = c.at.T2.get_pos()
+				while(T2_slack):
+					grav_sensed_curr = sz.get_sensor_readings() #read GRAVITY components 
+					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_small):
+						T2_slack=False
+						print "T2 Slack removed."
+						break				
+					c.at.T2.set_torque(0.1)
+					pos_new = c.at.T2.get_pos()
+					change = sz.measure_dtheta(pos_new, pos_old)
+					print "Delta Theta is : %f" % change
+					pos_old = pos_new
+				c.at.T2.set_torque(0) #stop
+				
+		elif (grav_comps[1]>0): # leaning towards T1
+
+			if(grav_comps[0]<0): #leaning away from T2
+				#unwind T1 and T3 a bit
+				c.at.T1.set_torque_mx(-0.05) #T1
+				sleep(unwind_time)
+				c.at.T1.set_torque_mx(0)
+				c.at.T3.set_torque(-0.1) #T3
+				sleep(unwind_time)
+				c.at.T3.set_torque(0)
+				
+				#wind T2 till deflection sensed =>				T2 slack removed
+				grav_sensed_init = sz.get_sensor_readings() #read GRAVITY components
+				pos_old = c.at.T2.get_pos()
+				while(T2_slack):
+					grav_sensed_curr = sz.get_sensor_readings() #read GRAVITY components 
+					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_large):
+						T2_slack=False
+						print "T2 Slack removed."
+						break				
+					c.at.T2.set_torque(0.1)
+					pos_new = c.at.T2.get_pos()
+					change = sz.measure_dtheta(pos_new, pos_old)
+					print "Delta Theta is : %f" % change
+					pos_old = pos_new
+				c.at.T2.set_torque(0) #stop
+				
+				
+				#wind T3 till *small* deflection sensed => 		T3 slack removed
+				grav_sensed_init = sz.get_sensor_readings() #read GRAVITY components
+				pos_old = c.at.T3.get_pos()
+				while(T3_slack):
+					grav_sensed_curr = sz.get_sensor_readings() #read GRAVITY components 
+					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_small):
+						T3_slack=False
+						print "T3 Slack removed."
+						break				
+					c.at.T3.set_torque(0.1)
+					pos_new = c.at.T3.get_pos()
+					change = sz.measure_dtheta(pos_new, pos_old)
+					print "Delta Theta is : %f" % change
+					pos_old = pos_new
+				c.at.T3.set_torque(0) #stop
+				
+			elif(grav_comps[0]>0): #leaning away from T3
+				#unwind T1 and T2 a bit
+				c.at.T1.set_torque_mx(-0.05) #T1
+				sleep(unwind_time)
+				c.at.T1.set_torque_mx(0)
+				c.at.T2.set_torque(-0.1) #T2
+				sleep(unwind_time)
+				c.at.T2.set_torque(0)
+				
+				# wind T3 till deflection sensed =>				T3 slack removed
+				grav_sensed_init = sz.get_sensor_readings() #read GRAVITY components
+				pos_old = c.at.T3.get_pos()
+				while(T3_slack):
+					grav_sensed_curr = sz.get_sensor_readings() #read GRAVITY components 
+					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_large):
+						T3_slack=False
+						print "T3 Slack removed."
+						break				
+					c.at.T3.set_torque(0.1)
+					pos_new = c.at.T3.get_pos()
+					change = sz.measure_dtheta(pos_new, pos_old)
+					print "Delta Theta is : %f" % change
+					pos_old = pos_new
+				c.at.T3.set_torque(0) #stop
+				# wind T2 till *small* deflection sensed =>		T2 slack removed
+				grav_sensed_init = sz.get_sensor_readings() #read GRAVITY components
+				pos_old = c.at.T2.get_pos()
+				while(T2_slack):
+					grav_sensed_curr = sz.get_sensor_readings() #read GRAVITY components 
+					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_small):
+						T2_slack=False
+						print "T2 Slack removed."
+						break				
+					c.at.T2.set_torque(0.1)
+					pos_new = c.at.T2.get_pos()
+					change = sz.measure_dtheta(pos_new, pos_old)
+					print "Delta Theta is : %f" % change
+					pos_old = pos_new
+				c.at.T2.set_torque(0) #stop
+			
+			#wind T1 till *small*deflection sensed =>		T1 slack removed
+			grav_sensed_init = sz.get_sensor_readings() #read GRAVITY components
+			pos_old = c.at.T1.get_pos()
+			while(T1_slack):
+				grav_sensed_curr = sz.get_sensor_readings() #read GRAVITY components 
+				if(abs(grav_sensed_curr[1]-grav_sensed_init[1]) > deflection_small):
+					T1_slack=False
+					print "T1 Slack removed."
+					break				
+				c.at.T1.set_torque_mx(0.05)
+				pos_new = c.at.T1.get_pos()
+				change = sz.measure_dtheta(pos_new, pos_old)
+				print "Delta Theta is : %f" % change
+				pos_old = pos_new
+			c.at.T1.set_torque_mx(0) #stop
+		print "All slacks removed."
+		#
+
+		#STEP_2	center the column
+		#STEP_3 Reset the accelerometer'''
+		
+
+	'''def measure_dtheta(sz, pos_new, pos_old):
+		diff = pos_new - pos_old
+
+		if abs(diff)>sz.limit_t:
+			#calculate valid delta and switch signs to be correct direction
+			if pos_new >= pos_old:# diff is +ve, so the solution should be -ve
+				diff = ((sz.max_t-pos_new)+(pos_old-sz.min_t)+1)*(-1)
+			else: # diff is negative, therfore the solution should be positive
+				diff = ((sz.max_t-pos_old)+(pos_new-sz.min_t)+1)
+		else:
+			diff = diff #valid calculation
+		return diff # convert ticks to radians'''
+
+	def update_state (sz, c):
+		# this takes in the current readings of the system and updates the
+		# position of the spiral zipper and the tether lengths
+        
+		#get current theta of each ckbot and use the change to figure out the changes
+
+		#read sensor data:
+		"""rotation=[]
+		rotation=sz.get_sensor_readings()
+		print "Sensor XYZ readings:"
+		print rotation
+		sensed_position=[]
+		sensed_position = sz.rotate(rotation[0],rotation[1])
+		print sensed_position"""
+		#print "Length of Array:"
+    	#print len(rotation)
+    	#Read current theta
+		#theta1 = c.at.T1.get_pos()
+		theta2 = c.at.T2.get_pos()
+		theta3 = c.at.T3.get_pos()
+		#theta_reading = [theta1,theta2,theta3]
+		theta_reading = [theta2, theta3]
+		#print "motor theta readings:"
+		#print theta_reading
+		#update current theta
+		sz.theta_curr = theta_reading
+		#calculate the change in position since last call
+		dtheta = sz.get_CR_delta() # see method for sign convention
+		#update previous theta
+		sz.theta_prev = sz.theta_curr
+		#calculate the new state of each tether
+		# since CCW delta is assumed positive we check how the tether
+		# grows in the CCW direction. if it subtracts we take the negative
+		# of the delta to change signs
+		for i in range(2,4):
+			if sz.tether_subtract_CCW:
+				sz.L[i] = sz.L[i] - dtheta[i-2]*sz.r_winch # local update
+				#do not use: sz.L[i] = -(theta_reading[i-1]-sz.theta0[i-1])*sz.r_winch # more global update
+        	'''else:
+				sz.L[i] = sz.L[i] + dtheta[i-1]*sz.r_winch # local update'''
+
+		sz.L[1] = sz.calc_L1([sz.L[2], sz.L[3]])
+	# end function
+def update_goal(sz,delta):
+		#add a delta value to the current goal
+		#  delta: array 1x3[dx,dy,dz]
+		sz.goal = np.array(sz.goal)+delta
+		#solve for z goal
+		sz.goal[2] = (sz.L[0]**2-sz.goal[0]**2-sz.goal[1]**2)**0.5
+		#limit goal to this range. assume onlt in x-y for now
+		for i in range(2):
+			if sz.goal[i]>sz.goal_max_fixed_col:
+				sz.goal[i] = sz.goal_max_fixed_col
+				print 'LIMIT REACHED!'
+			elif sz.goal[i]<-sz.goal_max_fixed_col:
+				sz.goal[i] = -sz.goal_max_fixed_col
+				print 'negative LIMIT REACHED!'
+
+
+	def get_CR_delta(sz):
+		#compare previous value and current value for modules
+    	# returns the delta in radians assums CCW is positive and CCW is defined facing the servo front
+      	#get current readings
+      	#Assume the current value of the sensor is stored and the previous value is correct.
+		#diff = [0.0,0.0,0.0]
+		diff = [0.0, 0.0]
+		#print "Theta_1 is %f" %sz.theta_curr[1]
+		for i in range(2):
+			diff[i] = sz.theta_curr[i]-sz.theta_prev[i]
+			if abs(diff[i])>sz.limit_t: #calculate valid delta and switch signs to be correct direction
+				if sz.theta_curr[i] >= sz.theta_prev[i]:# diff is +ve, so the solution should be -ve
+					diff[i] = ((sz.max_t-sz.theta_curr[i])+(sz.theta_prev[i]-sz.min_t)+1)*(-1)
+				else: # diff is negative, therfore the solution should be positive
+					diff[i] = ((sz.max_t-sz.theta_prev[i])+(sz.theta_curr[i]-sz.min_t)+1)
+			else:
+				diff[i] = diff[i] #valid calculation
+		# now set the old thetas as the new
+		sz.theta_prev = sz.theta_curr
+
+		#print "CR_Delta "
+		#print np.array(diff)*sz.radian_const
+		return np.array(diff)*sz.radian_const # convert ticks to radians
+
+
