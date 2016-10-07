@@ -14,12 +14,19 @@ from pygame import event
 from pygame.locals import *
 from time import time as now, sleep
 from numpy import pi
+<<<<<<< HEAD
 import math
+=======
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
 import numpy as np
 import spiral_zipper as sz
 
 # Specify module ID and the name we want to give each of them:
+<<<<<<< HEAD
 modules = { 0x46: 'T1', 0xDF: 'T2',0xE6:'T3' } 
+=======
+modules = { 0xDF: 'T1', 0xF7: 'T2',0xE1:'T3' } 
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
 
 if __name__=="__main__":
 
@@ -41,7 +48,11 @@ if __name__=="__main__":
     
     c.populate( len(modules), modules )
 
+<<<<<<< HEAD
     # Limit modufle speed and torque for safety
+=======
+    # Limit module speed and torque for safety
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
     torque_limit = 0.5
     for m in c.itermodules():
         m.set_torque_limit( torque_limit )
@@ -62,6 +73,7 @@ if __name__=="__main__":
     #gains to tune error and compensate for each module ability
     # be careful not to make these too large as the torque may saturate and the controller will not work
 
+<<<<<<< HEAD
     K1 = 0.5 # P- controller gain    MX CKbot requires less gain
     K2 = 1.5 #^
     K3 = 2.0 # this module seems to be lagging behind
@@ -88,6 +100,11 @@ if __name__=="__main__":
     target_achieved=[0, 0, 0] #Truth values for each cartesian target achieved
     target_reached = False #Truth value for overall target reached
 
+=======
+    K1 = 2.0 # P- controller gain
+    K2 = 2.0 #^
+    K3 = 2.1 # this modlue seems to be lagging behind         
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
 
     print "Spiral Zipper demo initialized"
     drivable = False
@@ -100,8 +117,11 @@ if __name__=="__main__":
     x_move = 0
     y_move = 0
     
+<<<<<<< HEAD
     
 
+=======
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
     #TODO: put this loop on a timer
     while True:
         sleep(0.1)# set loop rate
@@ -127,6 +147,7 @@ if __name__=="__main__":
                         y_move = evt.value
                         #print "Y motion: %f" % y_move
                 elif evt.type == JOYBUTTONDOWN:
+<<<<<<< HEAD
                 # Pressing controller's main buttons toggles drivability
                     if evt.button is 4:
                         drivable = not drivable
@@ -179,12 +200,23 @@ if __name__=="__main__":
                         raise KeyboardInterrupt
             if drivable:
 		
+=======
+	                  # Pressing controller's main buttons toggles drivability
+                    if evt.button in range(6):
+                        drivable = not drivable
+                        print 'Drivability status: %s' % str(drivable)
+                    # Pressing the trigger buttons ends demo.
+                    else:
+                        raise KeyboardInterrupt
+            if drivable:
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
                 # Set the torque values on the CR modules based on the 
                 # inputs that we got from the joystick 
                 #c.at.T1.set_torque( -(drive*driveGain - turn*turnGain) )
                 #c.at.T2.set_torque(  drive*driveGain + turn*turnGain )
                 #print "\n"*5
                 sz1.update_goal([x_move*Kx,y_move*Ky,0.0])
+<<<<<<< HEAD
                 print "goal is"
                 print sz1.get_goal()
 		
@@ -194,10 +226,18 @@ if __name__=="__main__":
                 print "Theta_3 is %f" %sz1.theta_curr[2]"""
                 #print "xyz error:"
                 #print sz1.get_error_xyz()
+=======
+                #print "goal is"
+                #print sz1.get_goal()
+                sz1.update_state (c)
+                print "xyz error:"
+                print sz1.get_error_xyz()
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
                 # controller for moving CkBots.
                 deltas_tether = sz1.get_error_state()
                 #print "delta tether lengths:"
                 #print deltas_tether #to debug
+<<<<<<< HEAD
 
                 print "Errors are:"
                 print deltas_tether
@@ -374,19 +414,40 @@ if __name__=="__main__":
                             t3 = 0;
                         c.at.T3.set_torque(-t3)
 		    
+=======
+                
+                t1 = deltas_tether[0]*K1 #control input with gain factored in
+                t2 = deltas_tether[1]*K2
+                t3 = deltas_tether[2]*K3
+                #print "cmd torques"
+                #print "%f" %t1
+                #print "%f" %t2
+                #print "%f" %t3
+                #print "current position is:"
+                #print sz1.get_xyz_pos()
+                #command ckbots to move. Note positive value is CCW
+                if sz1.tether_subtract_CCW:
+                    c.at.T1.set_torque(-t1)
+                    c.at.T2.set_torque(-t2)
+                    c.at.T3.set_torque(-t3)
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
                 else:
                     c.at.T1.set_torque(t1)
                     c.at.T2.set_torque(t2)
                     c.at.T3.set_torque(t3)
+<<<<<<< HEAD
 		    
 		    
                 print 'Tor1 %f' %c.at.T1.get_torque()
                 print 'Tor2 %f' %c.at.T2.get_torque()
                 print 'Tor3 %f' %c.at.T3.get_torque()
+=======
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
 
                 #print sz1.get_state
             else:
                 for m in c.itermodules():
+<<<<<<< HEAD
                     m.set_torque(0) #may want to change this to torque is zero
                 #send 
         except KeyboardInterrupt or ValueError:
@@ -402,10 +463,18 @@ if __name__=="__main__":
             pass
             #break
 
+=======
+                    m.go_slack() #may want to change this to torque is zero
+                #send 
+        except KeyboardInterrupt:
+            # Break out of the loop
+            break
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
 
     print "Demo exiting, turning off all modules"
     # Turn the modules off before we exit for safety
     for m in c.itermodules():
+<<<<<<< HEAD
         m.go_slack()
 
 
@@ -434,3 +503,6 @@ def trajectory(final_goal):
 
 #machine 1 replaced with MX CKbot.
 #minor tweaks in torque values is required for robustness in manipulation.
+=======
+        m.go_slack()
+>>>>>>> 571ddb31a1e7b16da3f95e3049bccb36114560ec
