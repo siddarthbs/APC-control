@@ -62,9 +62,9 @@ if __name__=="__main__":
     Kp3 = 4
     Kp = [Kp1,Kp2,Kp3]
     
-    Ki1 = 2  #integral gains
+    Ki1 = 10  #integral gains
     Ki2 = 2
-    Ki3 = 10
+    Ki3 = 2
     Ki = [Ki1,Ki2,Ki3]
 
     sz1.set_Kp_Gains(Kp)
