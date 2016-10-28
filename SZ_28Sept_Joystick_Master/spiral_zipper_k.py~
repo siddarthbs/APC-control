@@ -1,7 +1,6 @@
 import numpy as np
-import algopy as ap
-from algopy import UTPM
-
+#import algopy as ap
+# from algopy import UTPM
 from numpy import pi
 import serial
 import os
@@ -14,7 +13,7 @@ class SpiralZipper:
 	
 
 
-	def __init__(sz, start_position, r_winch, c, looptime):
+	def __init__(sz, start_position, r_winch, c, looptime, armflag):
 			
 		#Lengths set the initial configuration of the system.
         	# Lengths: array 1x4 [L0, L1, L2, L3]
@@ -63,10 +62,11 @@ class SpiralZipper:
 
 		for port in range(3):
 			if got_port[port]:
-				figuredout_LIDAR = False
+				figuredout_LIDAR1 = False
+				figuredout_LIDAR2 = False
 				figuredout_GYRO = False
 
-				while (not figuredout_LIDAR and not figuredout_GYRO):
+				while (not figuredout_LIDAR1 and not figuredout_LIDAR2 and not figuredout_GYRO):
 					bytesToRead = ser[port].inWaiting()
 					readings = ser[port].read(bytesToRead)
 					for t in reversed(readings.split()):  # read from most recent serial data
@@ -76,10 +76,16 @@ class SpiralZipper:
 							print "Port %d is GYRO" % port
 							break
 						elif (t is '<' or t is '>'):
-							sz.ser_lidar = ser[port]
-							figuredout_LIDAR = True
-							print "Port %d is LIDAR" % port
+							sz.ser_lidar1 = ser[port]
+							figuredout_LIDAR1 = True
+							print "Port %d is LIDAR1" % port
 							break
+						elif(t is '#' or t is '$'):
+							sz.ser_lidar2 = ser[port]
+							figuredout_LIDAR2 = True
+							print "Port %d is LIDAR2" % port
+							break
+
 						else:
 							print "Undecided..."
 			else:
@@ -88,7 +94,6 @@ class SpiralZipper:
 
 		'''except serial.SerialException:
 		sz.ser = serial.Serial('/dev/ttyACM1', 9600)'''
-
 		sleep(1)
 		# set params for ckbot control
 		sz.max_t = 65535
@@ -97,25 +102,16 @@ class SpiralZipper:
 		#sz.radian_const = .00549*np.pi/180		
 		sz.radian_const = 0.06*np.pi/180
 
-		#get ckbot's current rotation position for each Ckbot
-		theta1 = c.at.T1.get_pos()
-		theta2 = c.at.T2.get_pos()
-		theta3 = c.at.T3.get_pos()
-		sz.theta0 = [theta1,theta2,theta3]
-		
-		sz.theta_prev = sz.theta0 # used to update delta position
-		sz.theta_curr = sz.theta0 # will hold the current theta of the system
-
 		#init position of tether sources
 		sz.rb = 0.22           # circle containing spiral zipper  #.22 for the APC arm, .11 for the RCTA arm
 		sz.rt = 0.070  	       # circle containing the spiral zipper column
 		sz.r_winch = r_winch   # the radius of the winch used to wind tether.
 
-		phi = 32.5*pi/180  #rad
+		phi = pi/6  #rad
 
 		p1 = sz.rb*np.array([0,1, 0]) #+ np.array([0,0,.105])  #positions of the motors in xyz
-		p2 = sz.rb*np.array([np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.04])
-		p3 = sz.rb*np.array([-np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.04])
+		p2 = sz.rb*np.array([np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.125])
+		p3 = sz.rb*np.array([-np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.125])
 		sz.p = [np.array(start_position),p1,p2,p3]
 
 		ef1 = sz.rt*np.array([0,1, 0]) #tether attachment points on the end effector assumming arm is straight up
@@ -128,15 +124,35 @@ class SpiralZipper:
 		sz.L = sz.cart2tether(start_position, True) #tether length initialization routine
 		sz.L_vel_desired = [0,0,0,0]
 		sz.L_vel_actual = [0,0,0,0]
-		sz.errorsum = [0,0,0,0]
+		sz.errorsum = [0,0,0,0]	
+
+		#get ckbot's current rotation position for each Ckbot
+		if armflag == 0:
+			theta1 = c.at.T1.get_pos()
+			theta2 = c.at.T2.get_pos()
+			theta3 = c.at.T3.get_pos()
+			sz.theta0 = [theta1,theta2,theta3]
+			sz.L[0] = sz.sensed_lidar(armflag)
+			#sz.L[0] = sz.get_lidar1_readings() #takes one lidar reading directly
+			sensed_grav = sz.get_sensor_readings(armflag) #takes the average of a set of lidar readings
+		elif armflag == 1:
+			theta1 = c.at.T4.get_pos()
+			theta2 = c.at.T5.get_pos()
+			theta3 = c.at.T6.get_pos()
+			sz.theta0 = [theta1,theta2,theta3]
+			sz.L[0] = sz.sensed_lidar(armflag)			
+			#sz.L[0] = sz.get_lidar2_readings() #takes one lidar reading directly
+			sensed_grav = sz.get_sensor_readings(armflag) #takes the average of a set of lidar readings
+		sz.theta_prev = sz.theta0 # used to update delta position
+		sz.theta_curr = sz.theta0 # will hold the current theta of the system
+
 		#First LIDAR Readings
-		sz.L[0] = sz.get_lidar_readings()
+		#sz.L[0] = sz.get_lidar1_readings()
+		#zipper2 = sz.get_lidar2_readings()
 		sz.L0_desired = sz.L[0]
-		#print "L_Actual "
-		#print sz.L
 
 		#First predicted position is based on initial sensor reading
-		sensed_grav = sz.get_sensor_readings()
+
 		sz.sensed_pos = sz.rotate(sensed_grav[0], sensed_grav[1],sz.L[0])
 		sz.L = sz.cart2tether_actual(sz.sensed_pos)
 		sz.L_old = sz.L
@@ -157,6 +173,10 @@ class SpiralZipper:
 		sz.data_store_measurement = open("SZ_DATA_measurement.txt", "w")
 		sz.data_store_estimate = open("SZ_DATA_estimate.txt", "w")
 		
+
+	def vacuum_cleaner(sz):  #sends a command to the arduino that controls the vacuum.  Toggles it on and off
+		sz.ser_lidar2.write("r")
+
 
 	def set_Kp_Gains(sz, Kp):
 		sz.Kp = Kp
@@ -183,22 +203,29 @@ class SpiralZipper:
 		#This function updates the position of the system based purely on the IMU and Lidar sensor readings
 		rotation=[]
 		rotation = sz.get_sensor_readings()
-		sz.L[0] = sz.get_lidar_readings()
+		sz.L[0] = sz.get_lidar1_readings()
 		sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
 		sz.L = sz.cart2tether(sz.sensed_pos,False)
-		print "sensed tether lengths are : "
-		print sz.L
+		#print "sensed tether lengths are : "
+		#print sz.L
 
 
-	def update_state (sz, c):
+	def update_state (sz, c,armflag):
 		#This function updates the position of the system based on encoder data and the IMU.
-		theta1 = c.at.T1.get_pos()
-		theta2 = c.at.T2.get_pos()
-		theta3 = c.at.T3.get_pos()
-		theta_reading = [theta1,theta2,theta3]
-		
-		print "motor theta readings:"
-		print theta_reading
+		if armflag ==0:		
+			theta1 = c.at.T1.get_pos()
+			theta2 = c.at.T2.get_pos()
+			theta3 = c.at.T3.get_pos()
+			theta_reading = [theta1,theta2,theta3]
+		if armflag ==1:		
+			theta1 = c.at.T4.get_pos()
+			theta2 = c.at.T5.get_pos()
+			theta3 = c.at.T6.get_pos()
+			theta_reading = [theta1,theta2,theta3]
+			
+		#print "motor theta readings:"
+		#print theta_reading
+
 		#update current theta
 		sz.theta_curr = theta_reading
 		#calculate the change in position since last call
@@ -211,11 +238,10 @@ class SpiralZipper:
 		# grows in the CCW direction. if it subtracts we take the negative
 		# of the delta to change signs
 		rotation=[]
-		rotation = sz.get_sensor_readings()
+		rotation = sz.get_sensor_readings(armflag)
 		sz.L[0] = sz.L[0] - dtheta[0] * 0.00955 #0.06/(2*3.14159)  #change in column height is 16 cm/rev of the column. 2.666 motor revs/column
 		sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
 		sz.L = sz.cart2tether_actual(sz.sensed_pos)  #tether length update based on IMU only
-
 		sz.L_old = sz.L
 		looptime = now() - sz.timeold
 		if sz.tether_subtract_CCW:
@@ -224,27 +250,24 @@ class SpiralZipper:
 			#sz.L[3] = sz.L[3] - dtheta[2]*sz.r_winch# local update
 			#sz.L[1] = sz.calc_L1([sz.L[2], sz.L[3]])
 		
-			sz.L_vel_actual[0] = (- dtheta[0] * 0.00955) / looptime #0.06/(2*3.14159))/sz.looptime #gets the current speed of the system
+			sz.L_vel_actual[0] = (- dtheta[0] * 0.00955) / sz.looptime #0.06/(2*3.14159))/sz.looptime #gets the current speed of the system
 			#sz.L_vel_actual[1] = (sz.L[1] - (sz.calc_L1([sz.L[2], sz.L[3]]))/sz.looptime
-			sz.L_vel_actual[2] =  (-dtheta[1] * sz.r_winch) / looptime
-			sz.L_vel_actual[3] =  (-dtheta[2] * sz.r_winch) / looptime
+			sz.L_vel_actual[2] =  (-dtheta[1] * sz.r_winch) / sz.looptime
+			sz.L_vel_actual[3] =  (-dtheta[2] * sz.r_winch) / sz.looptime
 
 			
 		#do not use: sz.L[i] = -(theta_reading[i-1]-sz.theta0[i-1])*sz.r_winch # more global update
         	
 		#for i in range(4):
 		#	sz.L_vel_actual[i] = (sz.L[i] - sz.L_old[i])/ sz.looptime
-		print "current tether lengths are : "
-		print sz.L
-		print "current actual tether velocities are : "
-		print sz.L_vel_actual
+
 		sz.timeold = now()
 
 	def get_CR_delta(sz):
 		#compare previous value and current value for modules
-    	# returns the delta in radians assums CCW is positive and CCW is defined facing the servo front
-      	#get current readings
-      	#Assume the current value of the sensor is stored and the previous value is correct.
+    		# returns the delta in radians assums CCW is positive and CCW is defined facing the servo front
+      		#get current readings
+      		#Assume the current value of the sensor is stored and the previous value is correct.
 		diff = [0.0,0.0,0.0]
 		#diff = [0.0, 0.0]
 		#print "Theta_1 is %f" %sz.theta_curr[1]
@@ -262,8 +285,9 @@ class SpiralZipper:
 		print np.array(diff)*sz.radian_const
 		return np.array(diff)*sz.radian_const # convert ticks to radians
 
-	def update_goal(sz,delta): #gives a new 
-		#add a delta value to the current goal
+
+	def update_goal(sz,delta):
+		#add a delta value to the current position to create a goal position
 		#  delta: array 1x3[dx,dy,dz]
 		position = sz.sensed_pos
 		sz.L0_desired = sz.L[0] + delta[2]
@@ -273,17 +297,14 @@ class SpiralZipper:
 
 	def set_tether_speeds(sz):
 		L_goal = sz.cart2tether_actual(sz.goal)
-		print "desired tether lengths are :"
-		print L_goal
+		#print "desired tether lengths are :"
+		#print L_goal
 		position = sz.sensed_pos
-		#L_actual = sz.cart2tether(position,False)
-
+		looptime = now() - sz.timeold2
 		for i in range(4):
-			looptime = now() - sz.timeold2  #normally would just use sz.looptime. Attempts to compensate somewhat for variances in loopspeed caused by motor sensing problems
-			sz.L_vel_desired[i] = (L_goal[i] - sz.L[i]) / looptime
+			#normally would just use sz.looptime. Attempts to compensate somewhat for variances in loopspeed caused by motor sensing problems
+			sz.L_vel_desired[i] = (L_goal[i] - sz.L[i]) / sz.looptime
 
-		print "desired tether velocities are : "
-		print sz.L_vel_desired 
 		sz.timeold2 = now()
 
 
@@ -395,21 +416,23 @@ class SpiralZipper:
 		return np.linalg.norm(xyz-p1) #Tether length L1 is calculated
 
 
-	def get_sensor_readings(sz):
+	def get_sensor_readings(sz,armflag):
 		l = []
 		l2 = []
 		startread = False
 		startRead2 = False
 		finished1 = False
 		finished2 = False
-		while (len(l) != 3) and (len(l2) != 3):
+		count = 0
+		#readings = sz.ser_gyro.readline()
+		while (len(l) != 3) or (len(l2) != 3):
 			# print "trying to read"
-			bytesToRead = sz.ser_gyro.inWaiting()
-			readings = sz.ser_gyro.read(bytesToRead)
-			# print readings
-			# l = []
-			# l2 = []
-
+			#bytesToRead = sz.ser_gyro.inWaiting()
+			#readings = sz.ser_gyro.read(bytesToRead)			
+			readings = sz.ser_gyro.readline()
+			l = []
+			l2 = []
+			count = count + 1
 			for t in reversed(readings.split()):  # read from most recent serial data
 				# print t
 
@@ -440,25 +463,37 @@ class SpiralZipper:
 						except ValueError:
 							pass
 				if (finished1 and finished2):
-					break
+					continue
 
 			l = l[::-1]  # Reverse readings to get in [x y z] order
 			l2 = l2[::-1]  # Reverse readings to get in [x y z] order
-			if (len(l2) != 3 and len(l) != 3):
-				sleep(0.05)
-		#print "Sensor A Readings:"
-		#print l
-		print "Sensor B Readings:"
-		print l2
+			#if (len(l2) != 3 or len(l) != 3):
+			#	sleep(0.05)
 
-		return l2 #check which sensor is hooked up.  Change between l and l2 as necessary
+		for i in range(3):
+			if l[i] >= 9.82:
+				l[i] = l[i]/100
+			if l2[i] >= 9.82:
+				l2[i] = l2[i]/100
 
+		#print "Sensor Readings:"
+		#print l, l2
 
-	def get_lidar_readings(sz):  #reads lidar sensor data back
+		#print "sensor loop repeats %f" %count
+		sz.ser_gyro.flushInput()
+		if armflag ==0:
+			return l2 #check which sensor needs to be checked.  Change between l and l2 as necessary
+		elif armflag ==1:
+			return l
+
+	def get_lidar1_readings(sz):  #reads lidar sensor data back
 		l = []
 		while (len(l) != 1):
-			bytesToRead = sz.ser_lidar.inWaiting()
-			readings = sz.ser_lidar.read(bytesToRead)
+			#bytesToRead = sz.ser_lidar1.inWaiting()
+			#readings = sz.ser_lidar1.read(bytesToRead)
+			#sz.ser_lidar1.flushInput()
+			sleep(.1)
+			readings = sz.ser_lidar1.readline()
 			l = []
 			startread = False
 			for t in reversed(readings.split()):  # read from most recent serial data
@@ -483,12 +518,70 @@ class SpiralZipper:
 		return np.array(p)
 
 
-  	        
+	def get_lidar2_readings(sz):  #reads lidar sensor data back
+		l = []
+		while (len(l) != 1):
+			#bytesToRead = sz.ser_lidar2.inWaiting()
+			#readings = sz.ser_lidar2.read(bytesToRead)
+			#sz.ser_lidar2.flushInput()
+			#sleep(.1)			
+			readings = sz.ser_lidar2.readline()
+			l = []
+			startread = False
+			for t in reversed(readings.split()):  # read from most recent serial data
+				if (t is '$'):
+					startread = True
+					continue
+				if (startread):
+					if (t is '#'):
+						break
+					else:
+						try:
+							l.append(float(t))
+						except ValueError:
+							pass
+			l = l[::-1]  # Reverse readings to get in [x y z] order
+			if (len(l) != 1):
+				sleep(0.05)
+			#print "LIDAR Readings:"
+			#print l
+		p = (l[0] * .001 + .03)
+#		p = [float(x) for x in p]
+		
+		sz.ser_lidar2.write("s") #stops arduino from printing data
+		return np.array(p)
+
+  	def sensed_lidar(sz,flag):  #averages a set of 5 lidar readings
+		avg = 0		
+		if flag == 0:		
+			size = 10
+			for i in range(10):
+				read = sz.get_lidar1_readings()        
+				if read < .12:  #throws away bad data
+					read = 0
+					size = size - 1
+				avg = avg + read
+			avg = avg/size
+		if flag == 1:
+			size = 10
+			for i in range(10):
+				read = sz.get_lidar2_readings()        
+				if read < .12:
+					read = 0
+					size = size - 1
+				avg = avg + read
+			if size == 0:
+				print "ERROR. lidar not sensing column height properly"
+				size = 1
+			avg = avg / size
+		return avg
+
 	def rotate(sz,p,q,r): # determines current orientation based on gravity data
 		# initial position vector
 		v = np.matrix([[0],[0],[r]])
 		# Euler angles in degrees from the sensor
 		# CCW +ve, CW -ve
+		#need to check how things fail here
 		a = m.asin(q/9.81)
 		b = m.asin(p/9.81)
 		# Rotation matrix
@@ -552,21 +645,25 @@ class SpiralZipper:
 			sz.errorsum[3] = 0
 			t3 = 0
 
-		command_torques = [t2,t3,t1]
 		command_torques = [t1,t2,t3]
+
+		#print "command_torques are: "
+		#print command_torques
 
 		for i in range(3):
 			if command_torques[i] > 0.7:
-				command_torques[i] =  0.7
+				factor = command_torques[i] / 0.7
+				for j in range(3):
+					command_torques[j] =  command_torques[j] / factor
 			if command_torques[i] < -0.7:
-				command_torques[i] = -0.7
+				factor = command_torques[i] / -0.7
+				for j in range(3):
+					command_torques[j] = command_torques[j] / factor
 
 		return command_torques
 
-	def actuate_Motors(sz, c):  #converts desired user input commands into useable servo command inputs
+	def actuate_Motors(sz, c, armflag):  #converts desired user input commands into useable servo command inputs
 		command_torques = sz.PI_control()
-		print "command_torques are: "
-		print command_torques
 		
 		if(m.isnan(command_torques[0])): #guarantees that the motors won't vibrate due to I control instabilities
 			command_torques[0]=0
@@ -577,23 +674,29 @@ class SpiralZipper:
 
 		sz.torque_threshold = 0.02
 
+		if command_torques[0] < .1 and command_torques[0] > 0:
+			command_torques[0] = .1
+		if command_torques[0] > -.1 and command_torques[0] < 0:
+			command_torques[0] = -.1
+		
 		if sz.tether_subtract_CCW:
- 		#modification of the constants allows user to specify an extra torque input for the tethers when retracting.  this helps ensure the tethers never go slack.  Probably an obsolete command that can be removed.
-			if (command_torques[0] < 0):
-				c.at.T1.set_torque(-1 * command_torques[0])
-			else:
+ 		#modification of the constants allows user to specify an extra torque input for the tethers when retracting.  this helps ensure the tethers never go slack.  Probably an obsolete command that can be removed.  Command also flips the sign to fit the system convention.
+			if armflag == 0:
 				c.at.T1.set_torque(-command_torques[0])
-			if command_torques[1] < 0:
-				c.at.T2.set_torque(-1 * command_torques[1])
-			else:
 				c.at.T2.set_torque(-command_torques[1])
-			if command_torques[2] < 0:
-				c.at.T3.set_torque(-1 * command_torques[2])
-			else:
 				c.at.T3.set_torque(-command_torques[2])
-			
+			elif armflag == 1:
+				c.at.T4.set_torque(-command_torques[0])
+				c.at.T5.set_torque(-command_torques[1])
+				c.at.T6.set_torque(-command_torques[2])
+
 		else:
-			c.at.T1.set_torque(command_torques[2])
-			c.at.T2.set_torque(command_torques[0])
-			c.at.T3.set_torque(command_torques[1])
+			if armflag == 0:
+				c.at.T1.set_torque(command_torques[0])
+				c.at.T2.set_torque(command_torques[1])
+				c.at.T3.set_torque(command_torques[2])
+			if armflag == 1:
+				c.at.T4.set_torque(command_torques[0])
+				c.at.T5.set_torque(command_torques[1])
+				c.at.T6.set_torque(command_torques[2])
 

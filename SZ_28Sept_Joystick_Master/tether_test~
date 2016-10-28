@@ -1,0 +1,60 @@
+import pygame
+from pygame import joystick
+from pygame import event
+from pygame.locals import *
+import ckbot.logical as L # CKBot interface
+from time import time as now, sleep
+from numpy import pi
+import math
+import numpy as np
+
+modules = {0xE1: 'T1'}
+
+if __name__=="__main__":
+    
+    c = L.Cluster()
+    c.populate(1)
+    theta_prev = c.at.NxE1.get_pos()
+    
+    pygame.init()
+    joystick.init()
+    joystick.Joystick(0).init()
+
+    max_t = 65535
+    min_t = 0
+    limit_t = max_t/2
+    radian_const = 0.06*np.pi/180
+    r_winch = .0214
+
+    tether_length = .122 #cm
+
+    x2_move = 0
+    Ky = 0.25 #^
+
+
+    while True:
+	sleep(.1)
+	theta_curr = c.at.NxE1.get_pos()
+
+        diff = [0.0,0.0,0.0]
+	diff = theta_curr - theta_prev
+	if abs(diff) > limit_t: #calculate valid delta and switch signs to be correct direction
+		if theta_curr >= theta_prev:# diff is +ve, so the solution should be -ve
+			diff = ((max_t - theta_curr) + (theta_prev - min_t)+1)*(-1)
+		else: # diff is negative, therfore the solution should be positive
+			diff = ((max_t - theta_prev) + (theta_curr - min_t)+1)
+	else:
+		diff = diff #valid calculation
+
+	dtheta = np.array(diff) * radian_const	
+	theta_prev = theta_curr
+
+	tether_length = tether_length - dtheta*r_winch  #updates length of tether based on change in angle
+	print "tether length is now : %f" %tether_length
+
+	for evt in event.get():  #lets me change the tether length
+                	if evt.type == JOYAXISMOTION:   
+                 	   # Look at joystick events and control values
+                    		if evt.axis == 0:
+                        		x2_move = evt.value
+	c.at.NxE1.set_torque(Ky * x2_move) 
