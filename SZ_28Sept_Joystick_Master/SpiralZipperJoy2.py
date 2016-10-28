@@ -61,7 +61,11 @@ if __name__=="__main__":
     Kp3 = 4
     Kp = [Kp1,Kp2,Kp3]
     
+<<<<<<< HEAD
     Ki1 = 12  #integral gains
+=======
+    Ki1 = 10  #integral gains
+>>>>>>> a80cec4748ca10d645c670f3804a5871f5c88a00
     Ki2 = 2
     Ki3 = 2
     Ki = [Ki1,Ki2,Ki3]
