@@ -52,7 +52,7 @@ if __name__=="__main__":
 
     start_pos = [0,0,0.30]
     current_goal = start_pos
-    r_winch = 0.0225  #radius of the pulleys on the motors
+    r_winch = 0.0235 #radius of the pulleys on the motors
     looptime = .1
     sz1 = sz.SpiralZipper(start_pos, r_winch, c, looptime, 0)
     sz2 = sz.SpiralZipper(start_pos, r_winch, c, looptime, 1)
@@ -102,6 +102,8 @@ if __name__=="__main__":
     randompoint = cm.camera()
     print "the camera's target is :" 
     print randompoint
+    end_effector_old = np.matrix([[.25],[0],[.4]])
+    end_effector_des = np.matrix([[.25],[0],[.4]])
    # data = open('/home/modlab/Desktop/data.txt','w')
     #big_list = np.array([[1, 2, 3]])
 
@@ -156,6 +158,7 @@ if __name__=="__main__":
 					sz1.vacuum_cleaner()  #toggles end effector power
        		    		elif evt.button is 0:
 					mode = not mode
+					#sz1.vacuum_cleaner()  #toggles end effector power
 		                	A = sz1.sensed_pos + [0, 0, 0.09]  #end joint of arm 1
 					B = sz2.sensed_pos - [.51,0,0] + [0,0,.09] #end joint of arm 2
 					end_effector_pos = sz1.end_effector_position(A,B) #end effector			
@@ -163,20 +166,21 @@ if __name__=="__main__":
 					yaw_des = 0
 					pitch_des = 0
 				elif evt.button is 1:
-					#while (end_effector_des[0] > 1) or (end_effector_des[1] > 1) or (end_effector_des[2] > 1):
-					end_effector_des = cm.camera()	
-					sz1.vacuum_cleaner()  #toggles end effector power
-					end_effector_des[0] = end_effector_des[0] + .015
-					end_effector_des[1] = end_effector_des[1] - .05
-					
+					#end_effector_des = cm.camera()	
+					mode2 = True
+					#sz1.vacuum_cleaner()  #toggles end effector power
+					#end_effector_des[0] = end_effector_des[0] + .01
+					#end_effector_des[1] = end_effector_des[1] #- .05
+					#end_effector_des[2] = end_effector_des[2] #- .04
 					print "end effector desired is :"
 					#p_1[2] = p_1[2]
 					print end_effector_des
 					yaw_des = 0
 					pitch_des = 0
 				elif evt.button is 2:
-					end_effector_des = np.matrix([[.25], [0], [.32]])
+					end_effector_des = np.matrix([[.25], [0.05], [.45]])
 					sz1.vacuum_cleaner()  #toggles end effector power
+					mode2 = False
 					yaw_des = 0
 					pitch_des = 0
 				elif evt.button is 3:
@@ -197,6 +201,25 @@ if __name__=="__main__":
 				sz1.update_goal([-x1_move*Kx * 3,y1_move*Ky * 3, z1_move*Kz * 5], mode)  #input sets a desired velocity for the system in xyz				
 				sz2.update_goal([-x2_move*Kx * 3,y2_move*Ky * 3,z2_move*Kz * 5],mode)
 			else:
+				if mode2:
+					end_effector_des = cm.camera()	
+
+					end_effector_des[0] = end_effector_des[0] + .05
+					end_effector_des[1] = end_effector_des[1]# - .05
+					end_effector_des[2] = end_effector_des[2]# + .02
+
+					if abs(np.linalg.norm(end_effector_des - end_effector_old)) > 1:
+						end_effector_des = end_effector_old
+
+					if abs(np.linalg.norm(end_effector_des - end_effector_old)) < .12:
+						end_effector_des = end_effector_old
+
+					if abs(np.linalg.norm(end_effector_des - end_effector_pos)) < .02:
+						#end_effector_des = end_effector_pos
+						sz1.vacuum_cleaner()
+						mode2 = False
+						end_effector_des = np.matrix([[.25], [0.05], [.45]])
+
 				arm_positions = sz1.end_effector_goal(end_effector_des, yaw_des, pitch_des)
 				a = [arm_positions[0], arm_positions[1], arm_positions[2]]
 				b = [arm_positions[3], arm_positions[4], arm_positions[5]]
@@ -204,6 +227,9 @@ if __name__=="__main__":
 				sz2.update_goal(b,0)
 				print "end_effector goal is : "
 				print end_effector_des
+
+				#if (abs(end_effector_pos[0] - end_effector_des[0]) < .05) and (abs(end_effector_pos[1] - end_effector_des[1]) < .05) and (abs(end_effector_pos[2] - end_effector_des[2]) < .05):
+				#	sz1.vacuum_cleaner()  #toggles end effector power
 
 				#print "desired position is :"
 				#print  desired_position
@@ -220,8 +246,7 @@ if __name__=="__main__":
 			print A
 			print B
 			end_effector_pos = sz1.end_effector_position(A,B) #end effector
-			
-
+			end_effector_old = end_effector_des
 
 			print "end effector position is : "
 			print end_effector_pos

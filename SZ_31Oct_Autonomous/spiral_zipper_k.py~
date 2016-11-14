@@ -136,14 +136,18 @@ class SpiralZipper:
 			sz.lold = [0,0,0]
 			sensed_grav = sz.get_sensor_readings(armflag) #takes the average of a set of lidar readings
 		elif armflag == 1:
+			print "getting arm 2 readings"
 			theta1 = c.at.T4.get_pos()
 			theta2 = c.at.T5.get_pos()
 			theta3 = c.at.T6.get_pos()
 			sz.theta0 = [theta1,theta2,theta3]
-			sz.L[0] = sz.sensed_lidar(armflag)			
+			print "got encoder values"
+			sz.L[0] = sz.sensed_lidar(armflag)
+			print "got Lidar vals"			
 			#sz.L[0] = sz.get_lidar2_readings() #takes one lidar reading directly
 			sz.lold = [0,0,0]			
 			sensed_grav = sz.get_sensor_readings(armflag) #takes the average of a set of lidar readings
+			print "got IMU vals"
 		sz.theta_prev = sz.theta0 # used to update delta position
 		sz.theta_curr = sz.theta0 # will hold the current theta of the system
 
@@ -594,11 +598,11 @@ class SpiralZipper:
 			l = []
 			startread = False
 			for t in reversed(readings.split()):  # read from most recent serial data
-				if (t is '$'):
+				if (t is '#'):
 					startread = True
 					continue
 				if (startread):
-					if (t is '#'):
+					if (t is '$'):
 						break
 					else:
 						try:
@@ -608,8 +612,8 @@ class SpiralZipper:
 			l = l[::-1]  # Reverse readings to get in [x y z] order
 			if (len(l) != 1):
 				sleep(0.05)
-			#print "LIDAR Readings:"
-			#print l
+			print "LIDAR Readings:"
+			print l
 		p = (l[0] * .001 + .02)
 #		p = [float(x) for x in p]
 		
@@ -716,12 +720,12 @@ class SpiralZipper:
 		#print command_torques
 
 		for i in range(3):  #check that scales speed commands that are too large down to something the system can manage. Good for position control/step inputs
-			if command_torques[i] > 0.75:
-				factor = command_torques[i] / 0.75
+			if command_torques[i] > 0.6:
+				factor = command_torques[i] / 0.6
 				for j in range(3):
 					command_torques[j] =  command_torques[j] / factor
-			if command_torques[i] < -0.75:
-				factor = command_torques[i] / -0.75
+			if command_torques[i] < -0.6:
+				factor = command_torques[i] / -0.6
 				for j in range(3):
 					command_torques[j] = command_torques[j] / factor
 

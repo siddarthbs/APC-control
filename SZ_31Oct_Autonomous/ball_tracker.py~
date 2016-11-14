@@ -33,8 +33,8 @@ def camera():
 # define the lower and upper boundaries of the "green"
 # ball in the HSV color space, then initialize the
 # list of tracked points
-#greenLower = (15, 0, 86) #yellow ball
-#greenUpper = (64, 255, 255)
+	#greenLower = (15, 0, 86) #yellow ball
+	#greenUpper = (64, 255, 255)
 	#greenLower = (0, 0, 86) #white ball
 	#greenUpper = (25, 255, 255)
 	greenLower = (50, 125, 150) #blue ball
@@ -82,7 +82,8 @@ def camera():
 	cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
 		cv2.CHAIN_APPROX_SIMPLE)[-2]
 	center = None
- 
+ 	oldavg = 0 
+	p_0 = np.matrix([[.25],[0],[.40]])			
 	# only proceed if at least one contour was found
 	if len(cnts) > 0:
 		# find the largest contour in the mask, then use
@@ -119,9 +120,9 @@ def camera():
 			else:				
 				#D = 355.6/(1090.5 - depth[center[0],center[1]])
 				avg = 3000
-				k = 5
-				for i in range(10):
-					for j in range(10):
+				k = 2
+				for i in range(2*k):
+					for j in range(2*k):
 						if (depth[y+k-i,x+k-j] < avg) and (depth[y+k-i,x+k-j] > 0):
 							avg = depth[y+k-i,x+k-j]
 							xc = x+k-i
@@ -142,20 +143,22 @@ def camera():
 				yw = (yc-240)*a*D
 				print "camera coordinates are: "
 				print xw,yw,D
-
+			if (avg > 1.2) or (avg < 0):
+				D = .75
+				xw = 0
+				yw = 0
 			p_1 = np.matrix([[xw],[yw],[D],[1]])
 			psi = np.pi/3
-			phi = np.pi/2 #+ np.pi/12
+			phi = np.pi/2 + 25*np.pi/180
 			H_10 = np.matrix([[ np.cos(psi), np.cos(phi)*np.sin(psi), np.sin(phi)*np.sin(psi), -0.34],\
-	        		  [-np.sin(psi), np.cos(phi)*np.cos(psi), np.sin(phi)*np.cos(psi),-0.27],\
-	          		  [ 0	       ,-np.sin(phi)	        , np.cos(phi)		 , 0.538],\
+	        		  [-np.sin(psi), np.cos(phi)*np.cos(psi), np.sin(phi)*np.cos(psi),-0.26],\
+	          		  [ 0	       ,-np.sin(phi)	        , np.cos(phi)		 , 0.988],\
 		  		  [ 0	       , 0                      , 0                      , 1   ]])
 
 			p_0 = H_10 * p_1
+			p_0 = np.matrix([[p_0.item(0)],[p_0.item(1)],[p_0.item(2)]])			
 			print "world coordinates are: "
-			print p_0
-			np.matrix([[p_0.item(0)],[p_0.item(1)],[p_0.item(2)]])
-
+			print p_0		
 	return p_0				
 	# update the points queue
 	#pts.appendleft(center)
