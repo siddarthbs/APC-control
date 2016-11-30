@@ -1,0 +1,61 @@
+'''def measure_dtheta(sz, pos_new, pos_old):
+		diff = pos_new - pos_old
+
+		if abs(diff)>sz.limit_t:
+			#calculate valid delta and switch signs to be correct direction
+			if pos_new >= pos_old:# diff is +ve, so the solution should be -ve
+				diff = ((sz.max_t-pos_new)+(pos_old-sz.min_t)+1)*(-1)
+			else: # diff is negative, therfore the solution should be positive
+				diff = ((sz.max_t-pos_old)+(pos_new-sz.min_t)+1)
+		else:
+			diff = diff #valid calculation
+		return diff # convert ticks to radians'''
+
+
+	def update_state_sensors(sz, c): #currently unused
+		#This function updates the position of the system based purely on the IMU and Lidar sensor readings
+		rotation=[]
+		rotation = sz.get_sensor_readings()
+		sz.L[0] = sz.get_lidar1_readings()
+		sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
+		sz.L = sz.cart2tether(sz.sensed_pos,False)
+		#print "sensed tether lengths are : "
+		#print sz.L
+
+def cart2tether(sz,xyz,col_fixed):
+		#convert a cartesian goal to tether length goals. assumes a very simple geometry
+		#Assumes tethers begin in the z=0 plane and end at the center of the end effector. Inaccuracies grow as arm length extends
+		#goal : 1x3 array [x,y,z]
+       		#col_fixed: logical 0 is fixed length sz 1 is free length sz (length is a free varible)
+       		# OUTPUT
+       		# L = 1x4 array [L0,L1,L2,L3] spiral zipper and each tether length
+		x = xyz[0]
+		y = xyz[1]
+		z = xyz[2]
+		#if half plane, ignore z
+		if col_fixed is True: #this is only used for initialization purposes
+			#back out tether lengths and
+			k = x**2+y**2+z**2 #radius of sphere
+			p0 = xyz #desiredposition (goal)
+			L0 = np.linalg.norm(xyz) # length of centre column
+        	
+			L1 = np.linalg.norm(sz.p[1]-p0)
+			L2 = np.linalg.norm(sz.p[2]-p0)
+			L3 = np.linalg.norm(sz.p[3]-p0)
+		elif col_fixed is False:
+			#use x and y to solve for what z should be then solve for L
+			z = (sz.L[0]**2-x**2-y**2)**0.5 #assume positive square root			
+			k = x**2+y**2+z**2 #radius of sphere
+			p0 = [x,y,z]
+			L0 = k**0.5 # should just be sz.L[0] if not there is a math mistake
+			L1 = np.linalg.norm(sz.p[1]-p0)
+			L2 = np.linalg.norm(sz.p[2]-p0)
+			L3 = np.linalg.norm(sz.p[3]-p0)
+			
+		else:
+			print 'error in cart2tether input for col_fixed'
+
+		L = [L0,L1,L2,L3]
+
+		return L
+

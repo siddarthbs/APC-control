@@ -310,14 +310,4 @@ def update_goal(sz,delta):
 		#print np.array(diff)*sz.radian_const
 		return np.array(diff)*sz.radian_const # convert ticks to radians
 
-	def update_state_sensors(sz, c): #currently unused
-		#This function updates the position of the system based purely on the IMU and Lidar sensor readings
-		rotation=[]
-		rotation = sz.get_sensor_readings()
-		sz.L[0] = sz.get_lidar1_readings()
-		sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
-		sz.L = sz.cart2tether(sz.sensed_pos,False)
-		#print "sensed tether lengths are : "
-		#print sz.L
-
 

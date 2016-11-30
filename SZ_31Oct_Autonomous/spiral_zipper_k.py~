@@ -102,8 +102,8 @@ class SpiralZipper:
 		sz.radian_const = 0.06*np.pi/180
 
 		#init position of tether sources
-		sz.rb = 0.22           # circle containing spiral zipper  #.22 for the APC arm, .11 for the RCTA arm
-		sz.rt = 0.070  	       # circle containing the spiral zipper column
+		sz.rb = 0.22           # circle inscribing the spiral zipper motors #.22 for the APC arm, .11 for the RCTA arm
+		sz.rt = 0.070  	       # diameter of the spiral zipper column
 		sz.r_winch = r_winch   # the radius of the winch used to wind tether.
 
 		phi = pi/6  #rad
@@ -183,36 +183,33 @@ class SpiralZipper:
 		sz.ser_lidar2.write("r")
 
 
-	def set_Kp_Gains(sz, Kp):
-		sz.Kp = Kp
+	def set_Kp_Gains(sz, Kp, remote_or_auto):
+		if remote_or_auto == 0:
+			sz.Kp_remote = Kp
+		if remote_or_auto == 1:
+			sz.Kp = Kp
 
+	def set_Ki_Gains(sz, Ki, remote_or_auto):
+		if remote_or_auto == 0:		
+			sz.Ki_remote = Ki
+		if remote_or_auto == 1:
+			sz.Ki_remote
 
-	def set_Ki_Gains(sz, Ki):
-		sz.Ki = Ki
+	def get_Kp_Gains(sz, remote_or_auto):
+		if remote_or_auto == 0:
+			return sz.Kp_remote
+		if remote_or_auto == 1:
+			return sz.Kp
 
-
-	def get_Kp_Gains(sz):
-		return sz.Kp
-
-
-	def get_Ki_Gains(sz):
-		return sz.Ki
-
+	def get_Ki_Gains(sz, remote_or_auto):
+		if remote_or_auto == 0:
+			return sz.Ki_remote
+		if remote_or_auto == 1:
+			return sz.Ki
 
 	def get_goal(sz): #sets the 
 		#get goal information
 		return sz.goal
-
-		
-	def update_state_sensors(sz, c): #currently unused
-		#This function updates the position of the system based purely on the IMU and Lidar sensor readings
-		rotation=[]
-		rotation = sz.get_sensor_readings()
-		sz.L[0] = sz.get_lidar1_readings()
-		sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
-		sz.L = sz.cart2tether(sz.sensed_pos,False)
-		#print "sensed tether lengths are : "
-		#print sz.L
 
 
 	def update_state (sz, c,armflag):
@@ -247,8 +244,9 @@ class SpiralZipper:
 		sz.L[0] = sz.L[0] - dtheta[0] * 0.00955 #0.06/(2*3.14159)  #change in column height is 16 cm/rev of the column. 2.666 motor revs/column
 		sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
 		sz.L = sz.cart2tether_actual(sz.sensed_pos)  #tether length update based on IMU only
+
 		sz.L_old = sz.L
-		looptime = now() - sz.timeold
+
 		if sz.tether_subtract_CCW:
 			#sz.L[0] = sz.L[0] - dtheta[0] * 0.00955 #0.06/(2*3.14159)  #change in column height is 16 cm/rev of the column. 2.666 motor revs/column rev.  .06 cm/motor revs constants convert units to [cm/rad]
 			#sz.L[2] = sz.L[2] - dtheta[1]*sz.r_winch  # tether length update based on encoder data only
@@ -266,7 +264,6 @@ class SpiralZipper:
 		#for i in range(4):
 		#	sz.L_vel_actual[i] = (sz.L[i] - sz.L_old[i])/ sz.looptime
 
-		sz.timeold = now()
 
 	def get_CR_delta(sz):
 		#compare previous value and current value for modules
@@ -294,7 +291,7 @@ class SpiralZipper:
 	def update_goal(sz,delta,mode):
 		#add a delta value to the current position to create a goal position
 		#  delta: array 1x3[dx,dy,dz]
-		if mode:
+		if mode == 0:
 			position = sz.sensed_pos
 			sz.L0_desired = sz.L[0] + delta[2]
 			sz.goal = position + np.array([delta[0],delta[1],0]) 		
@@ -308,12 +305,9 @@ class SpiralZipper:
 		#print "desired tether lengths are :"
 		#print L_goal
 		position = sz.sensed_pos
-		looptime = now() - sz.timeold2
 		for i in range(4):
-			#normally would just use sz.looptime. Attempts to compensate somewhat for variances in loopspeed caused by motor sensing problems
 			sz.L_vel_desired[i] = (L_goal[i] - sz.L[i]) / sz.looptime
 
-		sz.timeold2 = now()
 
 	def end_effector_position(sz,A,B): #forward kinematics. Good for logging but not necessary for control
 		yaw = np.arcsin((A[1]-B[1])/np.linalg.norm(A-B))
@@ -683,12 +677,12 @@ class SpiralZipper:
 		position_xyz = np.array([x,y,z])+np.array(sz.p[3]) # shift offset
 		return position_xyz
 
-	def PI_control(sz): #velocity PI control
+	def PI_control(sz,remote_or_auto): #velocity PI control
 		desired_speed = sz.L_vel_desired #creates a local variable from the object variable
 		actual_speed = sz.L_vel_actual
-
-		Kp = sz.get_Kp_Gains() #gets PI gains from  the Main file
-		Ki = sz.get_Ki_Gains() 		
+	
+		Kp = sz.get_Kp_Gains(remote_or_auto) #gets PI gains from  the Main file
+		Ki = sz.get_Ki_Gains(remote_or_auto) 		
 		
 		sz.errorsum = sz.errorsum + (np.array(desired_speed) - np.array(actual_speed))  #I control variable
 
@@ -720,19 +714,20 @@ class SpiralZipper:
 		#print command_torques
 
 		for i in range(3):  #check that scales speed commands that are too large down to something the system can manage. Good for position control/step inputs
-			if command_torques[i] > 0.6:
-				factor = command_torques[i] / 0.6
+
+			if command_torques[i] > 0.75:
+				factor = command_torques[i] / 0.75
 				for j in range(3):
 					command_torques[j] =  command_torques[j] / factor
-			if command_torques[i] < -0.6:
-				factor = command_torques[i] / -0.6
+			if command_torques[i] < -0.75:
+				factor = command_torques[i] / -0.75
 				for j in range(3):
 					command_torques[j] = command_torques[j] / factor
 
 		return command_torques
 
-	def actuate_Motors(sz, c, armflag):  #converts desired user input commands into useable servo command inputs
-		command_torques = sz.PI_control()
+	def actuate_Motors(sz, c, armflag, remote_or_auto):  #converts desired user input commands into useable servo command inputs
+		command_torques = sz.PI_control(remote_or_auto)
 		
 		if(m.isnan(command_torques[0])): #guarantees that the motors won't vibrate due to I control instabilities
 			command_torques[0]=0

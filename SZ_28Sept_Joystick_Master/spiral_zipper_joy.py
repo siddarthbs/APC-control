@@ -99,6 +99,7 @@ class SpiralZipper:
 		sz.max_t = 65535
 		sz.min_t = 0
 		sz.limit_t = sz.max_t/2
+		#sz.radian_const = .00549*np.pi/180		
 		sz.radian_const = 0.06*np.pi/180
 
 		#init position of tether sources
@@ -113,7 +114,7 @@ class SpiralZipper:
 		p3 = sz.rb*np.array([-np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.125])
 		sz.p = [np.array(start_position),p1,p2,p3]
 
-		ef1 = sz.rt*np.array([0,1, 0]) #tether attachment points on the end effector assuming arm is straight up
+		ef1 = sz.rt*np.array([0,1, 0]) #tether attachment points on the end effector assumming arm is straight up
 		ef2 = sz.rt*np.array([np.cos(pi/6),-np.sin(pi/6), 0])
 		ef3 = sz.rt*np.array([-np.cos(pi/6),-np.sin(pi/6), 0])
 		sz.ef = [np.array(start_position),ef1,ef2,ef3]
@@ -133,21 +134,15 @@ class SpiralZipper:
 			sz.theta0 = [theta1,theta2,theta3]
 			sz.L[0] = sz.sensed_lidar(armflag)
 			#sz.L[0] = sz.get_lidar1_readings() #takes one lidar reading directly
-			sz.lold = [0,0,0]
 			sensed_grav = sz.get_sensor_readings(armflag) #takes the average of a set of lidar readings
 		elif armflag == 1:
-			print "getting arm 2 readings"
 			theta1 = c.at.T4.get_pos()
 			theta2 = c.at.T5.get_pos()
 			theta3 = c.at.T6.get_pos()
 			sz.theta0 = [theta1,theta2,theta3]
-			print "got encoder values"
-			sz.L[0] = sz.sensed_lidar(armflag)
-			print "got Lidar vals"			
+			sz.L[0] = sz.sensed_lidar(armflag)			
 			#sz.L[0] = sz.get_lidar2_readings() #takes one lidar reading directly
-			sz.lold = [0,0,0]			
 			sensed_grav = sz.get_sensor_readings(armflag) #takes the average of a set of lidar readings
-			print "got IMU vals"
 		sz.theta_prev = sz.theta0 # used to update delta position
 		sz.theta_curr = sz.theta0 # will hold the current theta of the system
 
@@ -174,9 +169,9 @@ class SpiralZipper:
 		#fixed column goal limit
 		sz.goal_max_fixed_col = np.cos(pi/5)*sz.L[0] #limit to 60 degrees away
 
-		#sz.data_store_predict = open("SZ_DATA_predict.txt", "w")
-		#sz.data_store_measurement = open("SZ_DATA_measurement.txt", "w")
-		#sz.data_store_estimate = open("SZ_DATA_estimate.txt", "w")
+		sz.data_store_predict = open("SZ_DATA_predict.txt", "w")
+		sz.data_store_measurement = open("SZ_DATA_measurement.txt", "w")
+		sz.data_store_estimate = open("SZ_DATA_estimate.txt", "w")
 		
 
 	def vacuum_cleaner(sz):  #sends a command to the arduino that controls the vacuum.  Toggles it on and off
@@ -286,21 +281,18 @@ class SpiralZipper:
 			else:
 				diff[i] = diff[i] #valid calculation
 
-		#print "motor position change "
-		#print np.array(diff)*sz.radian_const
+		print "motor position change "
+		print np.array(diff)*sz.radian_const
 		return np.array(diff)*sz.radian_const # convert ticks to radians
 
 
-	def update_goal(sz,delta,mode):
+	def update_goal(sz,delta):
 		#add a delta value to the current position to create a goal position
 		#  delta: array 1x3[dx,dy,dz]
-		if mode:
-			position = sz.sensed_pos
-			sz.L0_desired = sz.L[0] + delta[2]
-			sz.goal = position + np.array([delta[0],delta[1],0]) 		
-			sz.goal = (np.array(sz.goal)/np.linalg.norm(sz.goal))*sz.L0_desired	
-		else:
-			sz.goal = np.array([delta[0],delta[1],delta[2]])
+		position = sz.sensed_pos
+		sz.L0_desired = sz.L[0] + delta[2]
+		sz.goal = position + np.array([delta[0],delta[1],0]) 		
+		sz.goal = (np.array(sz.goal)/np.linalg.norm(sz.goal))*sz.L0_desired	
 
 
 	def set_tether_speeds(sz):
@@ -315,63 +307,6 @@ class SpiralZipper:
 
 		sz.timeold2 = now()
 
-	def end_effector_position(sz,A,B): #forward kinematics. Good for logging but not necessary for control
-		yaw = np.arcsin((A[1]-B[1])/np.linalg.norm(A-B))
-		pitch = np.arcsin((A[2]-B[2])/np.linalg.norm(A-B))
-			
-		print A
-		print B
-		print "yaw is %f" %yaw
-		print "pitch is %f" %pitch
-		R_yaw = np.matrix([[np.cos(yaw), -np.sin(yaw), 0],\
-				   [np.sin(yaw),  np.cos(yaw), 0],\
-				   [0	       ,  0	     , 1]])
-
-		R_pitch = np.matrix([[ np.cos(pitch), 0, np.sin(pitch)],\
-				     [0		    , 1, 0	      ],\
-				     [-np.sin(pitch), 0, np.cos(pitch)]])
-
-		C = R_yaw * R_pitch * np.matrix([[.25],[0],[0]]) + np.matrix([[A[0]],[A[1]],[A[2]]])
-		return C
-
-	def end_effector_goal(sz,C_des, yaw_des, pitch_des): #inverse kinematics
-
-		R_yaw = np.matrix([[np.cos(yaw_des), -np.sin(yaw_des), 0],\
-				   [np.sin(yaw_des),  np.cos(yaw_des), 0],\
-				   [0		   ,  0		     , 1]])
-
-		R_pitch = np.matrix([[ np.cos(pitch_des), 0, np.sin(pitch_des)],\
-				     [ 0		, 1, 0		      ],\
-				     [-np.sin(pitch_des), 0, np.cos(pitch_des)]])
-
-		A_des = C_des - R_pitch * R_yaw * np.matrix([[.25] ,[0] ,[0]]) # walks backward to A from endeffector based on angles
-		
-		BA = .51  #distance between A and B. Simplifies the calculations, but not a necessary condition
-		
-		By = BA * np.sin(yaw_des) + A_des[1]  #gets B from desired angles assuming a fixed distance between A and B
-		Bz = BA * np.sin(pitch_des) + A_des[2]
-		Bx = A_des[0] - np.sqrt(.51**2 - (A_des[1] - By)**2 - (A_des[2] - Bz)**2)
-		B_des = np.matrix([[Bx.item(0)], [By.item(0)], [Bz.item(0)]]) 
-
-		a = A_des - np.matrix([[0], [0], [.09]]) #shifts the desired position from the position of the crossarm to the end of the actual arm
-		b = B_des - np.matrix([[-.51], [0], [.09]])	
-		ab = [a.item(0), a.item(1), a.item(2), b.item(0), b.item(1), b.item(2)]
-		print ab
-		return ab
-
-	def Camera_2_World(sz, p_1):
-		psi = np.pi/4
-		phi = np.pi/2 + np.pi/12
-		H_10 = np.matrix([[ np.cos(psi), np.cos(phi)*np.sin(psi), np.sin(phi)*np.sin(psi), 0.04],\
-	          [-np.sin(psi), np.cos(phi)*np.cos(psi), np.sin(phi)*np.cos(psi),-0.28],\
-	          [ 0	       ,-np.sin(phi)	        , np.cos(phi)		 , 0.53],\
-		  [ 0	       , 0                      , 0                      , 1   ]])
-
-		p_0 = H_10 * p_1
-		print "p_0 is "
-		print p_0
-
-		return np.matrix([[p_0.item(0)],[p_0.item(1)],[p_0.item(2)]])
 
 	def cart2tether_goal(sz,xyz):  #currently unused. Probably obsolete
 		#convert a cartesian goal to tether length goals. assumes a very simple geometry
@@ -498,8 +433,8 @@ class SpiralZipper:
 			l = []
 			l2 = []
 			count = count + 1
-			t = 0
 			for t in reversed(readings.split()):  # read from most recent serial data
+				# print t
 
 				if (t is '}'):
 					startRead2 = True
@@ -529,15 +464,11 @@ class SpiralZipper:
 							pass
 				if (finished1 and finished2):
 					continue
-		#print t
-		if t != '[':
-			l = sz.lold
-		else:
+
 			l = l[::-1]  # Reverse readings to get in [x y z] order
-		l2 = l2[::-1]  # Reverse readings to get in [x y z] order
-		sz.lold = l			
+			l2 = l2[::-1]  # Reverse readings to get in [x y z] order
 			#if (len(l2) != 3 or len(l) != 3):
-			#	sleep(0.01)
+			#	sleep(0.05)
 
 		for i in range(3):
 			if l[i] >= 9.82:
@@ -582,7 +513,7 @@ class SpiralZipper:
 				sleep(0.05)
 			#print "LIDAR Readings:"
 			#print l
-		p = (l[0] * .001 + .02)
+		p = (l[0] * .001 + .03)
 #		p = [float(x) for x in p]
 		return np.array(p)
 
@@ -612,9 +543,9 @@ class SpiralZipper:
 			l = l[::-1]  # Reverse readings to get in [x y z] order
 			if (len(l) != 1):
 				sleep(0.05)
-			print "LIDAR Readings:"
-			print l
-		p = (l[0] * .001 + .02)
+			#print "LIDAR Readings:"
+			#print l
+		p = (l[0] * .001 + .03)
 #		p = [float(x) for x in p]
 		
 		sz.ser_lidar2.write("s") #stops arduino from printing data
@@ -719,13 +650,13 @@ class SpiralZipper:
 		#print "command_torques are: "
 		#print command_torques
 
-		for i in range(3):  #check that scales speed commands that are too large down to something the system can manage. Good for position control/step inputs
-			if command_torques[i] > 0.5:
-				factor = command_torques[i] / 0.5
+		for i in range(3):
+			if command_torques[i] > 0.75:
+				factor = command_torques[i] / 0.75
 				for j in range(3):
 					command_torques[j] =  command_torques[j] / factor
-			if command_torques[i] < -0.5:
-				factor = command_torques[i] / -0.5
+			if command_torques[i] < -0.75:
+				factor = command_torques[i] / -0.75
 				for j in range(3):
 					command_torques[j] = command_torques[j] / factor
 
@@ -741,9 +672,9 @@ class SpiralZipper:
 		if(m.isnan(command_torques[2])):
 			command_torques[2]=0
 
-		sz.torque_threshold = 0.02 #stops jitters when arm is supposed to be stationary
+		sz.torque_threshold = 0.02
 
-		if command_torques[0] < .1 and command_torques[0] > 0:  #increases length changing velocity commands if they are too small to help jump the system into motion and avoid stiction and tooth tolerance delays from ruining control
+		if command_torques[0] < .1 and command_torques[0] > 0:
 			command_torques[0] = .1
 		if command_torques[0] > -.1 and command_torques[0] < 0:
 			command_torques[0] = -.1

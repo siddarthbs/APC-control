@@ -8,18 +8,17 @@ from time import time as now, sleep
 import math as m
 import matplotlib.pyplot as plt
 import datetime
+import slack_removal as slack
 
 class SpiralZipper:
-	
-
 
 	def __init__(sz, start_position, r_winch, c, looptime, armflag):
 			
 		#Lengths set the initial configuration of the system.
-        	# Lengths: array 1x4 [L0, L1, L2, L3]
-        	#create spiral zipper object
-        	#physical notes
-        	#sz ckbot direction: CCW subtracts tether and CW adds/releases tether.
+		# Lengths: array 1x4 [L0, L1, L2, L3]
+		#create spiral zipper object
+		#physical notes
+		#sz ckbot direction: CCW subtracts tether and CW adds/releases tether.
 		sz.startposition = start_position
 		sz.start_detected = False
 		sz.entered = False
@@ -99,29 +98,22 @@ class SpiralZipper:
 		sz.max_t = 65535
 		sz.min_t = 0
 		sz.limit_t = sz.max_t/2
-		#sz.radian_const = .00549*np.pi/180		
 		sz.radian_const = 0.06*np.pi/180
 
 		#init position of tether sources
-		sz.rb = 0.22           # circle containing spiral zipper  #.22 for the APC arm, .11 for the RCTA arm
-		sz.rt = 0.070  	       # circle containing the spiral zipper column
+		sz.rb = 0.225           # circle inscribing the spiral zipper motors #.22 for the APC arm, .11 for the RCTA arm
+		sz.rt = 0.0695  	       # diameter of the spiral zipper column
 		sz.r_winch = r_winch   # the radius of the winch used to wind tether.
 
-		phi = pi/6  #rad
+		#phi = pi/6  #rad
+		phi = 28.81 * pi/180
 
-		p1 = sz.rb*np.array([0,1, 0]) #+ np.array([0,0,.105])  #positions of the motors in xyz
-		p2 = sz.rb*np.array([np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.125])
-		p3 = sz.rb*np.array([-np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.125])
+		p1 = (sz.rb)*np.array([0,1, 0]) + np.array([0,0,.1119])  #positions of the motors in xyz
+		p2 = sz.rb*np.array([np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.1119])
+		p3 = sz.rb*np.array([-np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.1119])
 		sz.p = [np.array(start_position),p1,p2,p3]
 
-		ef1 = sz.rt*np.array([0,1, 0]) #tether attachment points on the end effector assumming arm is straight up
-		ef2 = sz.rt*np.array([np.cos(pi/6),-np.sin(pi/6), 0])
-		ef3 = sz.rt*np.array([-np.cos(pi/6),-np.sin(pi/6), 0])
-		sz.ef = [np.array(start_position),ef1,ef2,ef3]
-		print "end effector cable positions are: "
-		print sz.ef[1]
-
-		sz.L = sz.cart2tether(start_position, True) #tether length initialization routine
+		sz.L = [0,0,0,0]
 		sz.L_vel_desired = [0,0,0,0]
 		sz.L_vel_actual = [0,0,0,0]
 		sz.errorsum = [0,0,0,0]	
@@ -131,18 +123,26 @@ class SpiralZipper:
 			theta1 = c.at.T1.get_pos()
 			theta2 = c.at.T2.get_pos()
 			theta3 = c.at.T3.get_pos()
-			sz.theta0 = [theta1,theta2,theta3]
+			theta4 = c.at.T7.get_pos()
+			sz.theta0 = [theta1,theta2,theta3,theta4]
 			sz.L[0] = sz.sensed_lidar(armflag)
 			#sz.L[0] = sz.get_lidar1_readings() #takes one lidar reading directly
+			sz.lold = [0,0,0]
 			sensed_grav = sz.get_sensor_readings(armflag) #takes the average of a set of lidar readings
 		elif armflag == 1:
+			print "getting arm 2 readings"
 			theta1 = c.at.T4.get_pos()
 			theta2 = c.at.T5.get_pos()
 			theta3 = c.at.T6.get_pos()
-			sz.theta0 = [theta1,theta2,theta3]
-			sz.L[0] = sz.sensed_lidar(armflag)			
+			theta4 = c.at.T8.get_pos()
+			sz.theta0 = [theta1,theta2,theta3,theta4]
+			print "got encoder values"
+			sz.L[0] = sz.sensed_lidar(armflag)
+			print "got Lidar vals"			
 			#sz.L[0] = sz.get_lidar2_readings() #takes one lidar reading directly
-			sensed_grav = sz.get_sensor_readings(armflag) #takes the average of a set of lidar readings
+			sz.lold = [0,0,0]			
+			sensed_grav = sz.get_sensor_readings(armflag) #takes the average of a set of IMU readings
+			print "got IMU vals"
 		sz.theta_prev = sz.theta0 # used to update delta position
 		sz.theta_curr = sz.theta0 # will hold the current theta of the system
 
@@ -151,9 +151,17 @@ class SpiralZipper:
 		#zipper2 = sz.get_lidar2_readings()
 		sz.L0_desired = sz.L[0]
 
+		ef1 = sz.rt*np.array([0,1, 0]) #tether attachment points on the end effector assuming arm is straight up
+		ef2 = sz.rt*np.array([np.cos(pi/6),-np.sin(pi/6), 0])
+		ef3 = sz.rt*np.array([-np.cos(pi/6),-np.sin(pi/6), 0])
+		sz.ef = [np.array(start_position),ef1,ef2,ef3]
+		print "end effector cable positions are: "
+		print sz.ef[1]
 		#First predicted position is based on initial sensor reading
+		
+		#sz.sensed_pos = sz.rotate(sensed_grav[0], sensed_grav[1],sz.L[0])
+		sz.sensed_pos = sz.rotate(sensed_grav[1], sensed_grav[2],sz.L[0])
 
-		sz.sensed_pos = sz.rotate(sensed_grav[0], sensed_grav[1],sz.L[0])
 		sz.L = sz.cart2tether_actual(sz.sensed_pos)
 		sz.L_old = sz.L
 		print "sensed_accelerations "
@@ -169,46 +177,46 @@ class SpiralZipper:
 		#fixed column goal limit
 		sz.goal_max_fixed_col = np.cos(pi/5)*sz.L[0] #limit to 60 degrees away
 
-		sz.data_store_predict = open("SZ_DATA_predict.txt", "w")
-		sz.data_store_measurement = open("SZ_DATA_measurement.txt", "w")
-		sz.data_store_estimate = open("SZ_DATA_estimate.txt", "w")
-		
+		#sz.data_store_predict = open("SZ_DATA_predict.txt", "w")
+		#sz.data_store_measurement = open("SZ_DATA_measurement.txt", "w")
+		#sz.data_store_estimate = open("SZ_DATA_estimate.txt", "w")
+		if armflag == 0:
+		slack.slack_remove(sz,c, 0)
+		#slack.slack_remove(sz,c, 1)
+
 
 	def vacuum_cleaner(sz):  #sends a command to the arduino that controls the vacuum.  Toggles it on and off
 		sz.ser_lidar2.write("r")
 
+	def slack_removal(sz,c):
+		slack.slack_remove(sz,c, 0)
 
-	def set_Kp_Gains(sz, Kp):
-		sz.Kp = Kp
+	def set_Kp_Gains(sz, Kp, remote_or_auto):
+		if remote_or_auto == 0:
+			sz.Kp_remote = Kp
+		if remote_or_auto == 1:
+			sz.Kp = Kp
 
+	def set_Ki_Gains(sz, Ki, remote_or_auto):
+		if remote_or_auto == 0:		
+			sz.Ki_remote = Ki
+		if remote_or_auto == 1:
+			sz.Ki = Ki
 
-	def set_Ki_Gains(sz, Ki):
-		sz.Ki = Ki
+	def get_Kp_Gains(sz, remote_or_auto):
+		if remote_or_auto == 0:
+			return sz.Kp_remote
+		if remote_or_auto == 1:
+			return sz.Kp
 
+	def get_Ki_Gains(sz, remote_or_auto):
+		if remote_or_auto == 0:
+			return sz.Ki_remote
+		if remote_or_auto == 1:
+			return sz.Ki
 
-	def get_Kp_Gains(sz):
-		return sz.Kp
-
-
-	def get_Ki_Gains(sz):
-		return sz.Ki
-
-
-	def get_goal(sz): #sets the 
-		#get goal information
+	def get_goal(sz): 	#get goal information
 		return sz.goal
-
-		
-	def update_state_sensors(sz, c): #currently unused
-		#This function updates the position of the system based purely on the IMU and Lidar sensor readings
-		rotation=[]
-		rotation = sz.get_sensor_readings()
-		sz.L[0] = sz.get_lidar1_readings()
-		sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
-		sz.L = sz.cart2tether(sz.sensed_pos,False)
-		#print "sensed tether lengths are : "
-		#print sz.L
-
 
 	def update_state (sz, c,armflag):
 		#This function updates the position of the system based on encoder data and the IMU.
@@ -216,13 +224,16 @@ class SpiralZipper:
 			theta1 = c.at.T1.get_pos()
 			theta2 = c.at.T2.get_pos()
 			theta3 = c.at.T3.get_pos()
-			theta_reading = [theta1,theta2,theta3]
+			theta4 = c.at.T7.get_pos()
+			#theta_reading = [theta1,theta2,theta3]
+			theta_reading = [theta1,theta2,theta3,theta4]
 		if armflag ==1:		
 			theta1 = c.at.T4.get_pos()
 			theta2 = c.at.T5.get_pos()
 			theta3 = c.at.T6.get_pos()
-			theta_reading = [theta1,theta2,theta3]
-			
+			theta4 = c.at.T8.get_pos()
+			#theta_reading = [theta1,theta2,theta3]
+			theta_reading = [theta1,theta2,theta3,theta4]
 		#print "motor theta readings:"
 		#print theta_reading
 
@@ -235,43 +246,38 @@ class SpiralZipper:
 
 		#calculate the new state of each tether
 		# since CCW delta is assumed positive we check how the tether
-		# grows in the CCW direction. if it subtracts we take the negative
+		# grows in the CCW directiatan(.1674/.3139) *180/pi. if it subtracts we take the negative
 		# of the delta to change signs
 		rotation=[]
 		rotation = sz.get_sensor_readings(armflag)
+		if armflag ==0:
+			print "IMU data is : "
+			print rotation		
 		sz.L[0] = sz.L[0] - dtheta[0] * 0.00955 #0.06/(2*3.14159)  #change in column height is 16 cm/rev of the column. 2.666 motor revs/column
-		sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
+		#sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
+		sz.sensed_pos = sz.rotate(rotation[1],rotation[2],sz.L[0])
+
 		sz.L = sz.cart2tether_actual(sz.sensed_pos)  #tether length update based on IMU only
+
+		#sz.L[0] = sz.L[0] - dtheta[0] * 0.00955 #0.06/(2*3.14159)  #change in column height is 16 cm/rev of the column. 2.666 motor revs/column rev.  .06 cm/motor revs constants convert units to [cm/rad]
+		#sz.L[1] = sz.L[1] - dtheta[3]*sz.r_winch
+		#sz.L[2] = sz.L[2] - dtheta[1]*sz.r_winch  # tether length update based on encoder data only
+		#sz.L[3] = sz.L[3] - dtheta[2]*sz.r_winch  # local update
+
 		sz.L_old = sz.L
-		looptime = now() - sz.timeold
-		if sz.tether_subtract_CCW:
-			#sz.L[0] = sz.L[0] - dtheta[0] * 0.00955 #0.06/(2*3.14159)  #change in column height is 16 cm/rev of the column. 2.666 motor revs/column rev.  .06 cm/motor revs constants convert units to [cm/rad]
-			#sz.L[2] = sz.L[2] - dtheta[1]*sz.r_winch  # tether length update based on encoder data only
-			#sz.L[3] = sz.L[3] - dtheta[2]*sz.r_winch# local update
-			#sz.L[1] = sz.calc_L1([sz.L[2], sz.L[3]])
-		
-			sz.L_vel_actual[0] = (- dtheta[0] * 0.00955) / sz.looptime #0.06/(2*3.14159))/sz.looptime #gets the current speed of the system
-			#sz.L_vel_actual[1] = (sz.L[1] - (sz.calc_L1([sz.L[2], sz.L[3]]))/sz.looptime
-			sz.L_vel_actual[2] =  (-dtheta[1] * sz.r_winch) / sz.looptime
-			sz.L_vel_actual[3] =  (-dtheta[2] * sz.r_winch) / sz.looptime
-
-			
-		#do not use: sz.L[i] = -(theta_reading[i-1]-sz.theta0[i-1])*sz.r_winch # more global update
-        	
-		#for i in range(4):
-		#	sz.L_vel_actual[i] = (sz.L[i] - sz.L_old[i])/ sz.looptime
-
-		sz.timeold = now()
+		sz.L_vel_actual[0] = (-dtheta[0] * 0.00955)    / sz.looptime #0.06/(2*3.14159))/sz.looptime #gets the current speed of the system
+		sz.L_vel_actual[1] = (-dtheta[3] * (sz.r_winch)) / sz.looptime
+		sz.L_vel_actual[2] = (-dtheta[1] * sz.r_winch) / sz.looptime
+		sz.L_vel_actual[3] = (-dtheta[2] * sz.r_winch) / sz.looptime
 
 	def get_CR_delta(sz):
 		#compare previous value and current value for modules
-    		# returns the delta in radians assums CCW is positive and CCW is defined facing the servo front
-      		#get current readings
-      		#Assume the current value of the sensor is stored and the previous value is correct.
-		diff = [0.0,0.0,0.0]
+		# returns the delta in radians assums CCW is positive and CCW is defined facing the servo front
+		#get current readings
+		#Assume the current value of the sensor is stored and the previous value is correct.
+		diff = [0.0,0.0,0.0,0.0]
 		#diff = [0.0, 0.0]
-		#print "Theta_1 is %f" %sz.theta_curr[1]
-		for i in range(3):
+		for i in range(4):
 			diff[i] = sz.theta_curr[i]-sz.theta_prev[i]
 			if abs(diff[i])>sz.limit_t: #calculate valid delta and switch signs to be correct direction
 				if sz.theta_curr[i] >= sz.theta_prev[i]:# diff is +ve, so the solution should be -ve
@@ -281,130 +287,163 @@ class SpiralZipper:
 			else:
 				diff[i] = diff[i] #valid calculation
 
-		print "motor position change "
-		print np.array(diff)*sz.radian_const
+		#print "motor position change "
+		#print np.array(diff)*sz.radian_const
 		return np.array(diff)*sz.radian_const # convert ticks to radians
 
 
-	def update_goal(sz,delta):
+	def update_goal(sz,delta,mode):
 		#add a delta value to the current position to create a goal position
 		#  delta: array 1x3[dx,dy,dz]
-		position = sz.sensed_pos
-		sz.L0_desired = sz.L[0] + delta[2]
-		sz.goal = position + np.array([delta[0],delta[1],0]) 		
-		sz.goal = (np.array(sz.goal)/np.linalg.norm(sz.goal))*sz.L0_desired	
-
+		if mode == 0: 
+			sz.L0_desired = sz.L[0] + delta[2]
+			sz.goal = sz.sensed_pos + np.array([delta[0],delta[1],0]) 		
+			sz.goal = (np.array(sz.goal)/np.linalg.norm(sz.goal))*sz.L0_desired	
+		else:
+			sz.goal = np.array([delta[0],delta[1],delta[2]])
+			print "goal is "
+			print sz.goal
 
 	def set_tether_speeds(sz):
 		L_goal = sz.cart2tether_actual(sz.goal)
-		#print "desired tether lengths are :"
-		#print L_goal
+
 		position = sz.sensed_pos
-		looptime = now() - sz.timeold2
 		for i in range(4):
-			#normally would just use sz.looptime. Attempts to compensate somewhat for variances in loopspeed caused by motor sensing problems
 			sz.L_vel_desired[i] = (L_goal[i] - sz.L[i]) / sz.looptime
 
-		sz.timeold2 = now()
 
-
-	def cart2tether_goal(sz,xyz):  #currently unused. Probably obsolete
-		#convert a cartesian goal to tether length goals. assumes a very simple geometry
-		#goal : 1x3 array [x,y,z]
-       	#col_fixed: logical 0 is fixed length sz 1 is free length sz (length is a free varible)
-       	# OUTPUT
-       	# L = 1x4 array [L0,L1,L2,L3] spiral zipper and each tether length
-		x = xyz[0]
-		y = xyz[1]
-		z = xyz[2]
-		#if half plane, ignore z
-		k = x**2+y**2+z**2 #radius of sphere
-		p0 = [x,y,z]
-		L0 = k**0.5 # should just be sz.L[0] if not there is a math mistake
-		L1 = np.linalg.norm(sz.p[1]-p0)
-		L2 = np.linalg.norm(sz.p[2]-p0)
-		L3 = np.linalg.norm(sz.p[3]-p0)
+	def end_effector_position(sz,A,B): #forward kinematics. Good for logging but not necessary for control
+		yaw = np.arcsin((A[1]-B[1])/np.linalg.norm(A-B))
+		pitch = np.arcsin((A[2]-B[2])/np.linalg.norm(A-B))
 			
-		L = [L0,L1,L2,L3]
-		return L
+		print A
+		print B
+		print "yaw is %f" %yaw
+		print "pitch is %f" %pitch
+		R_yaw = np.array([[np.cos(yaw), -np.sin(yaw), 0],\
+				   		   [np.sin(yaw),  np.cos(yaw), 0],\
+				   		   [0	       ,  0	     	 , 1]])
+
+		R_pitch = np.array([[ np.cos(pitch), 0, np.sin(pitch)],\
+				     		 [0		    	, 1, 0	      	  ],\
+				     		 [-np.sin(pitch), 0, np.cos(pitch)]])
+
+		C = np.dot(np.dot(R_yaw,R_pitch),np.array([.25,0,0])) + np.array([A[0],A[1],A[2]])
+		return C
+
+	def end_effector_goal(sz,C_des, yaw_des, pitch_des): #inverse kinematics
+
+		R_yaw = np.array([[np.cos(yaw_des), -np.sin(yaw_des), 0],\
+				   		   [np.sin(yaw_des),  np.cos(yaw_des), 0],\
+				   		   [0		   	   ,  0		     	 , 1]])
+
+		R_pitch = np.array([[ np.cos(pitch_des), 0, np.sin(pitch_des)],\
+				    		 [ 0				, 1, 0		     	  ],\
+				    		 [-np.sin(pitch_des), 0, np.cos(pitch_des)]])
+
+		A_des = C_des - R_pitch * R_yaw * np.matrix([[.25] ,[0] ,[0]]) # walks backward to A from endeffector based on angles
+		
+		BA = .51  #distance between A and B. Simplifies the calculations, but not a necessary condition
+		
+		By = BA * np.sin(yaw_des) + A_des[1]  #gets B from desired angles assuming a fixed distance between A and B
+		Bz = BA * np.sin(pitch_des) + A_des[2]
+		Bx = A_des[0] - np.sqrt(.51**2 - (A_des[1] - By)**2 - (A_des[2] - Bz)**2)
+		B_des = np.matrix([[Bx.item(0)], [By.item(0)], [Bz.item(0)]]) 
+
+		a = A_des - np.matrix([[0], [0], [.09]]) #shifts the desired position from the position of the crossarm to the end of the actual arm
+		b = B_des - np.matrix([[-.51], [0], [.09]])	
+		ab = [a.item(0), a.item(1), a.item(2), b.item(0), b.item(1), b.item(2)]
+		print ab
+		return ab
+
+	def Camera_2_World(sz, p_1):
+		psi = np.pi/4
+		phi = np.pi/2 + np.pi/12
+		H_10 = np.array([[ np.cos(psi), np.cos(phi)*np.sin(psi), np.sin(phi)*np.sin(psi), 0.04  ],\
+						  [-np.sin(psi), np.cos(phi)*np.cos(psi), np.sin(phi)*np.cos(psi),-0.28  ],\
+						  [ 0	       ,-np.sin(phi)	        , np.cos(phi)		 	 , 0.5725],\
+						  [ 0	       , 0                      , 0                      , 1     ]])
+
+		p_0 = np.dot(H_10, p_1)
+		print "p_0 is "
+		print p_0
+
+		return np.array([p_0.item(0),p_0.item(1),p_0.item(2)])
+
 
 	def cart2tether_actual(sz,xyz):
 		#convert a cartesian goal to tether length goals. assumes the tethers go to points on the outside edge of the end effector.
 		#returns a more precise estimate of tether length, but one that is inadmissible to the get_xyz_pos function
 		#goal : 1x3 array [x,y,z]
-       		# L = 1x4 array [L0,L1,L2,L3] spiral zipper and each tether length
-       		U = np.cross([0,0,sz.L[0]],xyz)
+			# L = 1x4 array [L0,L1,L2,L3] spiral zipper and each tether length
+		#finds the axis-angle rotation matrix from the column's vertical pose.
+		k = np.cross([0,0,sz.L[0]],xyz)
+		if np.linalg.norm(k) != 0:
+			k = k/np.linalg.norm(k)
+
 		theta = sz.angle_between([0,0,sz.L[0]], xyz)
-		Xu = np.take(U, 0)
-        	Yu = np.take (U, 1)
-        	Zu = np.take(U,2)
+		Xk = k[0]
+		Yk = k[1]
+		Zk = k[2]
+		#print " k and theta are : "
+		#print k
+		#print theta
+		v = 1 - m.cos(theta)
+		R = np.array( [[m.cos(theta) + (Xk**2*v)   , (Xk*Yk*v) - (Zk*m.sin(theta)), (Xk*Zk*v) + Yk*m.sin(theta)],\
+					   [2*((Yk*Xk*v) + Zk*m.sin(theta)), m.cos(theta) + (Yk**2*v)     , (Yk*Zk*v) - Xk*m.sin(theta)],\
+					   [(Zk*Xk*v) - Yk*m.sin(theta), (Zk*Yk*v) + Xk*m.sin(theta)  , m.cos(theta) + (Zk**2*v)   ]])
+		print "cart2tether R is :"
+		print R
+		L0 = m.sqrt((xyz[0]**2+xyz[1]**2+xyz[2]**2)) # should just be sz.L[0] if not there is a math mistake
 
-      		R = np.matrix( [ [m.cos(theta)+Xu**2*(1-m.cos(theta)), Xu*Yu*(1-m.cos(theta))-Zu*m.sin(theta), Xu*Zu*(1-m.cos(theta)+ Yu*m.sin(theta))], \
-                               [Yu*Xu*(1-m.cos(theta)+Zu*m.sin(theta)), m.cos(theta)+Yu**2*(1-m.cos(theta)), Yu*Zu*(1-m.cos(theta)-Xu*m.sin(theta))], \
-                               [ Zu*Xu*(1-m.cos(theta))+Zu*m.sin(theta), Zu*Yu*(1-m.cos(theta))+Xu*m.sin(theta), m.cos(theta)+Zu**2*(1-m.cos(theta))] ])
-		
-		k = xyz[0]**2+xyz[1]**2+xyz[2]**2 #radius of sphere
-		L0 = k**0.5 # should just be sz.L[0] if not there is a math mistake
-		#extracts the position vectors of the base and column tether attachment points.  Probably the wrong way to do this
-		ef1 = sz.ef[1]  
-		ef2 = sz.ef[2]
-		ef3 = sz.ef[3]
-
-		p1 = sz.p[1]
-		p2 = sz.p[2]
-		p3 = sz.p[3]
 		#calculates position vector of the column tether attachment points in the world frame
-		OB1 = np.array([[xyz[0]],[xyz[1]],[xyz[2]]]) + R * np.array([[ef1[0]],[ef1[1]],[ef1[2]]])  
-		OB2 =np.array([[xyz[0]],[xyz[1]],[xyz[2]]]) + R * np.array([[ef2[0]],[ef2[1]],[ef2[2]]])		
-		OB3 = np.array([[xyz[0]],[xyz[1]],[xyz[2]]]) + R * np.array([[ef3[0]],[ef3[1]],[ef3[2]]])
-		#finds the norm of that 
-		L1 = np.linalg.norm(OB1 - np.array([[p1[0]],[p1[1]],[p1[2]]]))	
-		L2 = np.linalg.norm(OB2 - np.array([[p2[0]],[p2[1]],[p2[2]]]))
-		L3 = np.linalg.norm(OB3 - np.array([[p3[0]],[p3[1]],[p3[2]]]))
-			
+		OB1 = xyz + np.dot(R,sz.ef[1])  
+		OB2 = xyz + np.dot(R,sz.ef[2])		
+		OB3 = xyz + np.dot(R,sz.ef[3])
+
+		L1 = np.linalg.norm(OB1 - sz.p[1])
+		L2 = np.linalg.norm(OB2 - sz.p[2])
+		L3 = np.linalg.norm(OB3 - sz.p[3])
+
 		L = [L0,L1,L2,L3]
 		return L
 
-	def cart2tether(sz,xyz,col_fixed):
-		#convert a cartesian goal to tether length goals. assumes a very simple geometry
-		#Assumes tethers begin in the z=0 plane and end at the center of the end effector. Inaccuracies grow as arm length extends
-		#goal : 1x3 array [x,y,z]
-       		#col_fixed: logical 0 is fixed length sz 1 is free length sz (length is a free varible)
-       		# OUTPUT
-       		# L = 1x4 array [L0,L1,L2,L3] spiral zipper and each tether length
-		x = xyz[0]
-		y = xyz[1]
-		z = xyz[2]
-		#if half plane, ignore z
-		if col_fixed is True: #this is only used for initialization purposes
-			#back out tether lengths and
-			k = x**2+y**2+z**2 #radius of sphere
-			p0 = xyz #desiredposition (goal)
-			L0 = np.linalg.norm(xyz) # length of centre column
-        	
-			L1 = np.linalg.norm(sz.p[1]-p0)
-			L2 = np.linalg.norm(sz.p[2]-p0)
-			L3 = np.linalg.norm(sz.p[3]-p0)
-		elif col_fixed is False:
-			#use x and y to solve for what z should be then solve for L
-			z = (sz.L[0]**2-x**2-y**2)**0.5 #assume positive square root			
-			k = x**2+y**2+z**2 #radius of sphere
-			p0 = [x,y,z]
-			L0 = k**0.5 # should just be sz.L[0] if not there is a math mistake
-			L1 = np.linalg.norm(sz.p[1]-p0)
-			L2 = np.linalg.norm(sz.p[2]-p0)
-			L3 = np.linalg.norm(sz.p[3]-p0)
-			
-		else:
-			print 'error in cart2tether input for col_fixed'
+	def rotate(sz,p,q,r): # determines current orientation based on gravity data
+		# initial position vector
+		v = np.array([0,0,r])
+		# Euler angles in degrees from the sensor
+		# CCW +ve, CW -ve
+		#need to check how things fall here
+		a =  (q) * pi/180#-1.875
+		b =  (p) * pi/180#+.5
+		#a = m.asin((q )/9.8)  + .0875#gets angle and accounts for bias in IMU reading
+		#b = m.asin((p )/9.8)  + .01438
+		# Rotation matrix'
+		Ra = np.array([[1, 0 	  ,  0		 ],\
+					   [0, m.cos(a),-m.sin(a)],\
+					   [0, m.sin(a), m.cos(a)]])
+		Rb = np.array([[ m.cos(b), 0 , m.sin(b)],\
+					  [  0		 , 1 , 0	   ],\
+					  [ -m.sin(b), 0 , m.cos(b)]])
+		R = np.dot(Ra,Rb)
+		#R = np.array([[ (m.cos(b))			  ,         0,  m.sin(b)			],\
+		#			   [(-m.sin(a))*(m.sin(b)),  m.cos(a), (m.sin(a))*(m.cos(b))],\
+		#			   [(-m.sin(b))*(m.cos(a)), -m.sin(a), (m.cos(a))*(m.cos(b))]])
+		print "rotate R : "
+		print R
+		new_v = np.dot(R,v)
 
-		L = [L0,L1,L2,L3]
+		return new_v.T
+	
+	def angle_between(sz, v1, v2): #gets angle between two input vectors
+		v1_u = v1/np.linalg.norm(v1) # unit vectors
+		v2_u = v2/np.linalg.norm(v2)
 
-		return L
+		return np.arccos(np.dot(v1_u, v2_u))  
 
 	def calc_L1(sz, l_state):  #this is probably an unnecessary calculation. get_xyz_pos trilaterates using this tether length.  It shouldn't.
 		#Trilateration should done using tether lengths 2 and 3, and the column length
-		p1 = sz.rb*np.array([0,1,0]) #Coordinates for motor 1
+		p1 = (sz.rb+.003)*np.array([0,1,0]) #Coordinates for motor 1
 		a = sz.rb*np.cos(pi/6)
 		b = sz.rb*np.sin(pi/6)
 
@@ -414,7 +453,6 @@ class SpiralZipper:
 
 		xyz = [x,y,z]
 		return np.linalg.norm(xyz-p1) #Tether length L1 is calculated
-
 
 	def get_sensor_readings(sz,armflag):
 		l = []
@@ -433,8 +471,8 @@ class SpiralZipper:
 			l = []
 			l2 = []
 			count = count + 1
+			t = 0
 			for t in reversed(readings.split()):  # read from most recent serial data
-				# print t
 
 				if (t is '}'):
 					startRead2 = True
@@ -464,17 +502,21 @@ class SpiralZipper:
 							pass
 				if (finished1 and finished2):
 					continue
-
+		#print t
+		if t != '[':
+			l = sz.lold
+		else:
 			l = l[::-1]  # Reverse readings to get in [x y z] order
-			l2 = l2[::-1]  # Reverse readings to get in [x y z] order
+		l2 = l2[::-1]  # Reverse readings to get in [x y z] order
+		sz.lold = l			
 			#if (len(l2) != 3 or len(l) != 3):
-			#	sleep(0.05)
+			#	sleep(0.01)
 
-		for i in range(3):
+		'''for i in range(3):
 			if l[i] >= 9.82:
 				l[i] = l[i]/100
 			if l2[i] >= 9.82:
-				l2[i] = l2[i]/100
+				l2[i] = l2[i]/100'''
 
 		#print "Sensor Readings:"
 		#print l, l2
@@ -513,27 +555,21 @@ class SpiralZipper:
 				sleep(0.05)
 			#print "LIDAR Readings:"
 			#print l
-		p = (l[0] * .001 + .03)
-#		p = [float(x) for x in p]
+		p = (l[0] * .001 + .02)
 		return np.array(p)
-
 
 	def get_lidar2_readings(sz):  #reads lidar sensor data back
 		l = []
-		while (len(l) != 1):
-			#bytesToRead = sz.ser_lidar2.inWaiting()
-			#readings = sz.ser_lidar2.read(bytesToRead)
-			#sz.ser_lidar2.flushInput()
-			#sleep(.1)			
+		while (len(l) != 1):			
 			readings = sz.ser_lidar2.readline()
 			l = []
 			startread = False
 			for t in reversed(readings.split()):  # read from most recent serial data
-				if (t is '$'):
+				if (t is '#'):
 					startread = True
 					continue
 				if (startread):
-					if (t is '#'):
+					if (t is '$'):
 						break
 					else:
 						try:
@@ -543,15 +579,14 @@ class SpiralZipper:
 			l = l[::-1]  # Reverse readings to get in [x y z] order
 			if (len(l) != 1):
 				sleep(0.05)
-			#print "LIDAR Readings:"
-			#print l
-		p = (l[0] * .001 + .03)
-#		p = [float(x) for x in p]
+			print "LIDAR Readings:"
+			print l
+		p = (l[0] * .001 + .02)
 		
 		sz.ser_lidar2.write("s") #stops arduino from printing data
 		return np.array(p)
 
-  	def sensed_lidar(sz,flag):  #averages a set of 5 lidar readings
+	def sensed_lidar(sz,flag):  #averages a set of 5 lidar readings
 		avg = 0		
 		if flag == 0:		
 			size = 10
@@ -576,37 +611,14 @@ class SpiralZipper:
 			avg = avg / size
 		return avg
 
-	def rotate(sz,p,q,r): # determines current orientation based on gravity data
-		# initial position vector
-		v = np.matrix([[0],[0],[r]])
-		# Euler angles in degrees from the sensor
-		# CCW +ve, CW -ve
-		#need to check how things fail here
-		a = m.asin(q/9.81)
-		b = m.asin(p/9.81)
-		# Rotation matrix
-		R = np.matrix([[           (m.cos(b)),         0,               m.sin(b)],
-		               [ (-m.sin(a))*(m.sin(b)),  m.cos(a), (m.sin(a))*(m.cos(b))],
-		               [(-m.sin(b))*(m.cos(a)),  -m.sin(a), (m.cos(a))*(m.cos(b))]])
-		new_v = R*v
-
-		A = np.array(new_v.T)[0]
-		return A
-
-	def angle_between(sz, v1, v2): #gets angle between two input vectors
-        	v1_u = v1/np.linalg.norm(v1) # unit vectors
-        	v2_u = v2/np.linalg.norm(v2)
-        	return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))  
-
 	def get_xyz_pos(sz): #Performs Trilateration to get XYZ position
-	#assumes tethers begin in z=0 plane and end at the center of the end effector. Also is currently using the three tether lengths. It ought to use tethers 2 & 3 and the column length
-		#TODO
-	    	#return end effector position.
-  		#triangulate the end effector position wikipedia this not x and y are swapped
+		#assumes tethers begin in z=0 plane and end at the center of the end effector. Also is currently using the three tether lengths. It ought to use tethers 2 & 3 and the column length
+		#return end effector position.
+		#triangulate the end effector position wikipedia this not x and y are swapped
 		d = sz.rb*(3)**0.5 #from state init
 		i = d/2
 		j = (d**2-i**2)**0.5
-	      
+
 		x = (sz.L[3]**2-sz.L[2]**2+d**2)/(2*d)#+i**2+j**2)/(2*j)-i/j*x
 		y = (sz.L[3]**2-sz.L[1]**2-x**2+(x-i)**2+j**2)/(2*j)
 		#import pdb; pdb.set_trace()
@@ -614,12 +626,12 @@ class SpiralZipper:
 		position_xyz = np.array([x,y,z])+np.array(sz.p[3]) # shift offset
 		return position_xyz
 
-	def PI_control(sz): #velocity PI control
+	def PI_control(sz,remote_or_auto): #velocity PI control
 		desired_speed = sz.L_vel_desired #creates a local variable from the object variable
 		actual_speed = sz.L_vel_actual
-
-		Kp = sz.get_Kp_Gains() #gets PI gains from  the Main file
-		Ki = sz.get_Ki_Gains() 		
+	
+		Kp = sz.get_Kp_Gains(remote_or_auto) #gets PI gains from  the Main file
+		Ki = sz.get_Ki_Gains(remote_or_auto) 		
 		
 		sz.errorsum = sz.errorsum + (np.array(desired_speed) - np.array(actual_speed))  #I control variable
 
@@ -645,58 +657,52 @@ class SpiralZipper:
 			sz.errorsum[3] = 0
 			t3 = 0
 
-		command_torques = [t1,t2,t3]
-
+		t4 = Kp[2] * (desired_speed[1]-actual_speed[1]) + Ki[2]*sz.errorsum[1]
+		if desired_speed[1] ==0:
+			sz.errorsum[1] = 0
+			t4 = 0
+		
+		#command_torques = [t1,t2,t3]
+		command_torques = [t1,t2,t3,t4]
 		#print "command_torques are: "
 		#print command_torques
+		for i in range(4):
+		#for i in range(3):  #check that scales speed commands that are too large down to something the system can manage. Good for position control/step inputs
 
-		for i in range(3):
 			if command_torques[i] > 0.75:
 				factor = command_torques[i] / 0.75
-				for j in range(3):
+				for j in range(4):
 					command_torques[j] =  command_torques[j] / factor
 			if command_torques[i] < -0.75:
 				factor = command_torques[i] / -0.75
-				for j in range(3):
+				for j in range(4):
 					command_torques[j] = command_torques[j] / factor
 
 		return command_torques
 
-	def actuate_Motors(sz, c, armflag):  #converts desired user input commands into useable servo command inputs
-		command_torques = sz.PI_control()
+	def actuate_Motors(sz, c, armflag, remote_or_auto):  #converts desired user input commands into useable servo command inputs
+		command_torques = sz.PI_control(remote_or_auto)
 		
-		if(m.isnan(command_torques[0])): #guarantees that the motors won't vibrate due to I control instabilities
-			command_torques[0]=0
-		if(m.isnan(command_torques[1])):
-			command_torques[1]=0
-		if(m.isnan(command_torques[2])):
-			command_torques[2]=0
+		for i in range(4):
+			if(m.isnan(command_torques[i])): #guarantees that the motors won't vibrate due to I control instabilities
+				command_torques[i]=0
 
-		sz.torque_threshold = 0.02
+		sz.torque_threshold = 0.02 #stops jitters when arm is supposed to be stationary
 
-		if command_torques[0] < .1 and command_torques[0] > 0:
+		if command_torques[0] < .1 and command_torques[0] > 0:  #increases length changing velocity commands if they are too small to help jump the system into motion and avoid stiction and tooth tolerance delays from ruining control
 			command_torques[0] = .1
 		if command_torques[0] > -.1 and command_torques[0] < 0:
 			command_torques[0] = -.1
-		
-		if sz.tether_subtract_CCW:
- 		#modification of the constants allows user to specify an extra torque input for the tethers when retracting.  this helps ensure the tethers never go slack.  Probably an obsolete command that can be removed.  Command also flips the sign to fit the system convention.
-			if armflag == 0:
-				c.at.T1.set_torque(-command_torques[0])
-				c.at.T2.set_torque(-command_torques[1])
-				c.at.T3.set_torque(-command_torques[2])
-			elif armflag == 1:
-				c.at.T4.set_torque(-command_torques[0])
-				c.at.T5.set_torque(-command_torques[1])
-				c.at.T6.set_torque(-command_torques[2])
 
-		else:
-			if armflag == 0:
-				c.at.T1.set_torque(command_torques[0])
-				c.at.T2.set_torque(command_torques[1])
-				c.at.T3.set_torque(command_torques[2])
-			if armflag == 1:
-				c.at.T4.set_torque(command_torques[0])
-				c.at.T5.set_torque(command_torques[1])
-				c.at.T6.set_torque(command_torques[2])
+ 		#modification of the constants allows user to specify an extra torque input for the tethers when retracting.  this helps ensure the tethers never go slack.  Probably an obsolete command that can be removed.  Command also flips the sign to fit the system convention.
+		if armflag == 0:
+			c.at.T1.set_torque(-command_torques[0])
+			c.at.T2.set_torque(-command_torques[1])
+			c.at.T3.set_torque(-command_torques[2])
+			c.at.T7.set_torque(-command_torques[3])
+		elif armflag == 1:
+			c.at.T4.set_torque(-command_torques[0])
+			c.at.T5.set_torque(-command_torques[1])
+			c.at.T6.set_torque(-command_torques[2])
+			c.at.T8.set_torque(-command_torques[3])
 

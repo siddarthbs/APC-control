@@ -15,10 +15,10 @@ from time import time as now, sleep
 from numpy import pi
 import math
 import numpy as np
-import spiral_zipper_k as sz
+import spiral_zipper_joy as sz
 
 # Specify module ID and the name we want to give each of them:
-modules = {0xE4: 'T1',0xEA:'T2',0xDF:'T3',0xF8:'T4',0xF1:'T5',0xF2:'T6'}
+modules = {0xE4: 'T1',0xEA:'T2',0xE3:'T3',0xF8:'T4',0xF1:'T5',0xF2:'T6'}
 
 if __name__=="__main__":
 
@@ -61,11 +61,9 @@ if __name__=="__main__":
     Kp3 = 4
     Kp = [Kp1,Kp2,Kp3]
     
-<<<<<<< HEAD
     Ki1 = 12  #integral gains
-=======
     Ki1 = 10  #integral gains
->>>>>>> a80cec4748ca10d645c670f3804a5871f5c88a00
+
     Ki2 = 2
     Ki3 = 2
     Ki = [Ki1,Ki2,Ki3]

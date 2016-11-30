@@ -15,7 +15,7 @@ from time import time as now, sleep
 from numpy import pi
 import math
 import numpy as np
-import spiral_zipper_k as sz
+import spiral_zipper_joy as sz
 
 # Specify module ID and the name we want to give each of them:
 modules = {0xE4: 'T1',0xEA:'T2',0xDF:'T3',0xF8:'T4',0xF1:'T5',0xF2:'T6'}
@@ -51,7 +51,7 @@ if __name__=="__main__":
 
     start_pos = [0,0,0.30]
     current_goal = start_pos
-    r_winch = 0.022  #radius of the pulleys on the motors
+    r_winch = 0.0225  #radius of the pulleys on the motors
     looptime = .1
     sz1 = sz.SpiralZipper(start_pos, r_winch, c, looptime, 0)
     sz2 = sz.SpiralZipper(start_pos, r_winch, c, looptime, 1)
@@ -62,6 +62,8 @@ if __name__=="__main__":
     Kp = [Kp1,Kp2,Kp3]
     
     Ki1 = 12  #integral gains
+    Ki1 = 10  #integral gains
+
     Ki2 = 2
     Ki3 = 2
     Ki = [Ki1,Ki2,Ki3]

@@ -15,11 +15,11 @@ from time import time as now, sleep
 from numpy import pi
 import math
 import numpy as np
-import spiral_zipper_auto as sz
+import spiral_zipper_4M as sz
 import ball_tracker as cm
 
 # Specify module ID and the name we want to give each of them:
-modules = {0xE4: 'T1',0xEA:'T2',0xE3:'T3',0xF8:'T4',0xF1:'T5',0xF2:'T6'}
+modules = {0xE4: 'T1',0xEA:'T2',0xDF:'T3',0xF8:'T4',0xF1:'T5',0xF2:'T6', 0xE3:'T7',0x04:'T8'}
 
 if __name__=="__main__":
 
@@ -35,7 +35,7 @@ if __name__=="__main__":
     # Optionally specify left and right modules through the command line.
     
     if len(sys.argv) == 2:
-        modules = {int(sys.argv[1]) : 'T1', int(sys.argv[2]) : 'T2', int(sys.argv[3]) : 'T3',int(sys.argv[4]) : 'T4',int(sys.argv[5]) : 'T5',int(sys.argv[6]) : 'T6'}
+        modules = {int(sys.argv[1]) : 'T1', int(sys.argv[2]) : 'T2', int(sys.argv[3]) : 'T3',int(sys.argv[4]) : 'T4',int(sys.argv[5]) : 'T5',int(sys.argv[6]) : 'T6',int(sys.argv[7]) : 'T7',int(sys.argv[8]) : 'T8'}
 
     # Create a CKBot cluster
     c = L.Cluster()
@@ -52,7 +52,7 @@ if __name__=="__main__":
 
     start_pos = [0,0,0.30]
     current_goal = start_pos
-    r_winch = 0.0225 #radius of the pulleys on the motors
+    r_winch = 0.0195 #radius of the pulleys on the motors
     looptime = .1
     sz1 = sz.SpiralZipper(start_pos, r_winch, c, looptime, 0)
     sz2 = sz.SpiralZipper(start_pos, r_winch, c, looptime, 1)
@@ -106,9 +106,9 @@ if __name__=="__main__":
     y2_move = 0
     z1_move = 0
     z2_move = 0
-    randompoint = cm.camera()
-    print "the camera's target is :" 
-    print randompoint
+    #randompoint = cm.camera()
+    #print "the camera's target is :" 
+    #print randompoint
     end_effector_old = np.matrix([[.25],[0],[.4]])
     end_effector_des = np.matrix([[.25],[0],[.4]])
    # data = open('/home/modlab/Desktop/data.txt','w')
@@ -139,21 +139,25 @@ if __name__=="__main__":
 				if evt.button is 0: #toggles arm from remote control into autonomous control mode
 					if mode == 0: 
 						mode = 1
-						target_pos = np.matrix([[.25], [0.00], [.35]])
+						#target_pos = np.matrix([[.25], [0.00], [.35]])
+						sz1.update_goal([0.0,0.0,.4],1) 
 					else:
 						mode = 0
 				elif evt.button is 1: #switches arm into camera tracking mode
-					mode = 2 
+					#mode = 2
+					sz1.slack_removal(c)
 				elif evt.button is 2: #sets a desired position in auto control mode
 					mode = 1 
-					target_pos = np.matrix([[.25], [0.05], [.45]])
-					yaw_des = 0
-					pitch_des = 0
+					sz1.update_goal([-.05,-.05,.45],1) 
+					#target_pos = np.matrix([[.25], [0.05], [.45]])
+					#yaw_des = 0
+					#pitch_des = 0
 				elif evt.button is 3: #sets a desired position in auto control mode
 					mode = 1
-					target_pos = np.matrix([[.35], [-.05], [.35]])
-					yaw_des = 0
-					pitch_des = -.1
+					sz1.update_goal([.1,.05,.5],1) 
+					#target_pos = np.matrix([[.35], [-.05], [.35]])
+					#yaw_des = 0
+					#pitch_des = -.1
 
                     		elif evt.button is 4: #arm 1 up in remote control mode
 					z1_flag = not z1_flag
@@ -193,15 +197,14 @@ if __name__=="__main__":
 
 			#The robot state machine
 			if mode == 0: #remote control 
-				sz1.update_goal([-x1_move*Kx ,y1_move*Ky, z1_move*Kz ], mode)  #input sets a desired velocity for the system in xyz				
+				sz1.update_goal([-x1_move*Kx ,y1_move*Ky, z1_move*Kz], mode)  #input sets a desired velocity for the system in xyz				
 				sz2.update_goal([-x2_move*Kx,y2_move*Ky,z2_move*Kz],mode)
 				remote_or_auto = 0
 
 			elif mode == 1: #autonomous control: 0 position
 				yaw_des = 0
 				pitch_des = 0
-				end_effector_des = target_pos
-
+				#end_effector_des = target_pos
 			elif mode == 2: #Camera Tracking mode.  Arm will follow target object and attempt to grab it
 				yaw_des = 0
 				pitch_des = 0
@@ -240,11 +243,11 @@ if __name__=="__main__":
 					mode = 1
 			
 			if mode != 0: #When arm is in auto mode
-				arm_positions = sz1.end_effector_goal(end_effector_des, yaw_des, pitch_des) #commands to be sent to the controller
-				a = [arm_positions[0], arm_positions[1], arm_positions[2]]
-				b = [arm_positions[3], arm_positions[4], arm_positions[5]]
-				sz1.update_goal(a,1) #outputs desired position commands to the control system
-				sz2.update_goal(b,1)
+				#arm_positions = sz1.end_effector_goal(end_effector_des, yaw_des, pitch_des) #commands to be sent to the controller
+				#a = [arm_positions[0], arm_positions[1], arm_positions[2]]
+				#b = [arm_positions[3], arm_positions[4], arm_positions[5]]
+				#sz1.update_goal(a,1) #outputs desired position commands to the control system
+				#sz2.update_goal(b,1)
 				print "end_effector goal is : "
 				print end_effector_des	
 				remote_or_auto = 1				
@@ -258,11 +261,12 @@ if __name__=="__main__":
 			
                 	A = sz1.sensed_pos + [0, 0, 0.09]  #end joint of arm 1
 			B = sz2.sensed_pos - [.51, 0, 0] + [0, 0, .09] #end joint of arm 2
-			print A
-			print B
+			#print A
+			#print B
 			end_effector_pos = sz1.end_effector_position(A,B) #end effector
 			end_effector_old = end_effector_des
-
+			print "position is "
+			print sz1.sensed_pos
 			print "end effector position is : "
 			print end_effector_pos
 			print "goal is"
