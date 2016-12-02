@@ -102,15 +102,15 @@ class SpiralZipper:
 		sz.radian_const = 0.06*np.pi/180
 
 		#init position of tether sources
-		sz.rb = 0.22           # circle inscribing the spiral zipper motors #.22 for the APC arm, .11 for the RCTA arm
-		sz.rt = 0.070  	       # diameter of the spiral zipper column
+		sz.rb = 0.225           # circle inscribing the spiral zipper motors #.22 for the APC arm, .11 for the RCTA arm
+		sz.rt = 0.0695  	       # diameter of the spiral zipper column
 		sz.r_winch = r_winch   # the radius of the winch used to wind tether.
 
-		phi = pi/6  #rad
+		phi = 28.81 * pi/180  #rad
 
 		p1 = sz.rb*np.array([0,1, 0]) #+ np.array([0,0,.105])  #positions of the motors in xyz
-		p2 = sz.rb*np.array([np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.125])
-		p3 = sz.rb*np.array([-np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.125])
+		p2 = sz.rb*np.array([np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.1119])
+		p3 = sz.rb*np.array([-np.cos(phi),-np.sin(phi), 0]) + np.array([0,0,.1119])
 		sz.p = [np.array(start_position),p1,p2,p3]
 
 		ef1 = sz.rt*np.array([0,1, 0]) #tether attachment points on the end effector assuming arm is straight up
@@ -120,7 +120,7 @@ class SpiralZipper:
 		print "end effector cable positions are: "
 		print sz.ef[1]
 
-		sz.L = sz.cart2tether(start_position, True) #tether length initialization routine
+		sz.L = [1,0,0,0] #tether length initialization routine
 		sz.L_vel_desired = [0,0,0,0]
 		sz.L_vel_actual = [0,0,0,0]
 		sz.errorsum = [0,0,0,0]	
@@ -317,38 +317,39 @@ class SpiralZipper:
 		print B
 		print "yaw is %f" %yaw
 		print "pitch is %f" %pitch
-		R_yaw = np.matrix([[np.cos(yaw), -np.sin(yaw), 0],\
+		R_yaw = np.array([[np.cos(yaw), -np.sin(yaw), 0],\
 				   [np.sin(yaw),  np.cos(yaw), 0],\
 				   [0	       ,  0	     , 1]])
 
-		R_pitch = np.matrix([[ np.cos(pitch), 0, np.sin(pitch)],\
+		R_pitch = np.array([[ np.cos(pitch), 0, np.sin(pitch)],\
 				     [0		    , 1, 0	      ],\
 				     [-np.sin(pitch), 0, np.cos(pitch)]])
 
-		C = R_yaw * R_pitch * np.matrix([[.25],[0],[0]]) + np.matrix([[A[0]],[A[1]],[A[2]]])
+		C = np.dot(np.dot(R_yaw,R_pitch),np.array([.25,0,0])) + np.array([A[0],A[1],A[2]])
+		#C = R_yaw * R_pitch * np.matrix([[.25],[0],[0]]) + np.matrix([[A[0]],[A[1]],[A[2]]])
 		return C
 
 	def end_effector_goal(sz,C_des, yaw_des, pitch_des): #inverse kinematics
 
-		R_yaw = np.matrix([[np.cos(yaw_des), -np.sin(yaw_des), 0],\
+		R_yaw = np.array([[np.cos(yaw_des), -np.sin(yaw_des), 0],\
 				   [np.sin(yaw_des),  np.cos(yaw_des), 0],\
 				   [0		   ,  0		     , 1]])
 
-		R_pitch = np.matrix([[ np.cos(pitch_des), 0, np.sin(pitch_des)],\
+		R_pitch = np.array([[ np.cos(pitch_des), 0, np.sin(pitch_des)],\
 				     [ 0		, 1, 0		      ],\
 				     [-np.sin(pitch_des), 0, np.cos(pitch_des)]])
-
-		A_des = C_des - R_pitch * R_yaw * np.matrix([[.25] ,[0] ,[0]]) # walks backward to A from endeffector based on angles
+		A_des = C_des - np.dot(np.dot(R_pitch,R_yaw),np.array([.25,0,0])
+		#A_des = C_des - R_pitch * R_yaw * np.matrix([[.25] ,[0] ,[0]]) # walks backward to A from endeffector based on angles
 		
 		BA = .51  #distance between A and B. Simplifies the calculations, but not a necessary condition
 		
 		By = BA * np.sin(yaw_des) + A_des[1]  #gets B from desired angles assuming a fixed distance between A and B
 		Bz = BA * np.sin(pitch_des) + A_des[2]
 		Bx = A_des[0] - np.sqrt(.51**2 - (A_des[1] - By)**2 - (A_des[2] - Bz)**2)
-		B_des = np.matrix([[Bx.item(0)], [By.item(0)], [Bz.item(0)]]) 
+		B_des = np.array([Bx.item(0), By.item(0), Bz.item(0)]) 
 
-		a = A_des - np.matrix([[0], [0], [.09]]) #shifts the desired position from the position of the crossarm to the end of the actual arm
-		b = B_des - np.matrix([[-.51], [0], [.09]])	
+		a = A_des - np.array([0, 0, .09]) #shifts the desired position from the position of the crossarm to the end of the actual arm
+		b = B_des - np.array([-.51, 0, .09])	
 		ab = [a.item(0), a.item(1), a.item(2), b.item(0), b.item(1), b.item(2)]
 		print ab
 		return ab
@@ -356,110 +357,82 @@ class SpiralZipper:
 	def Camera_2_World(sz, p_1):
 		psi = np.pi/4
 		phi = np.pi/2 + np.pi/12
-		H_10 = np.matrix([[ np.cos(psi), np.cos(phi)*np.sin(psi), np.sin(phi)*np.sin(psi), 0.04],\
+		H_10 = np.array([[ np.cos(psi), np.cos(phi)*np.sin(psi), np.sin(phi)*np.sin(psi), 0.04],\
 	          [-np.sin(psi), np.cos(phi)*np.cos(psi), np.sin(phi)*np.cos(psi),-0.28],\
 	          [ 0	       ,-np.sin(phi)	        , np.cos(phi)		 , 0.53],\
 		  [ 0	       , 0                      , 0                      , 1   ]])
 
-		p_0 = H_10 * p_1
+		p_0 = np.dot(H_10, p_1)
 		print "p_0 is "
 		print p_0
 
-		return np.matrix([[p_0.item(0)],[p_0.item(1)],[p_0.item(2)]])
-
-	def cart2tether_goal(sz,xyz):  #currently unused. Probably obsolete
-		#convert a cartesian goal to tether length goals. assumes a very simple geometry
-		#goal : 1x3 array [x,y,z]
-       	#col_fixed: logical 0 is fixed length sz 1 is free length sz (length is a free varible)
-       	# OUTPUT
-       	# L = 1x4 array [L0,L1,L2,L3] spiral zipper and each tether length
-		x = xyz[0]
-		y = xyz[1]
-		z = xyz[2]
-		#if half plane, ignore z
-		k = x**2+y**2+z**2 #radius of sphere
-		p0 = [x,y,z]
-		L0 = k**0.5 # should just be sz.L[0] if not there is a math mistake
-		L1 = np.linalg.norm(sz.p[1]-p0)
-		L2 = np.linalg.norm(sz.p[2]-p0)
-		L3 = np.linalg.norm(sz.p[3]-p0)
-			
-		L = [L0,L1,L2,L3]
-		return L
-
+		#return np.matrix([[p_0.item(0)],[p_0.item(1)],[p_0.item(2)]])
+		return p_0
+		
 	def cart2tether_actual(sz,xyz):
 		#convert a cartesian goal to tether length goals. assumes the tethers go to points on the outside edge of the end effector.
 		#returns a more precise estimate of tether length, but one that is inadmissible to the get_xyz_pos function
 		#goal : 1x3 array [x,y,z]
-       		# L = 1x4 array [L0,L1,L2,L3] spiral zipper and each tether length
-       		U = np.cross([0,0,sz.L[0]],xyz)
+			# L = 1x4 array [L0,L1,L2,L3] spiral zipper and each tether length
+		#finds the axis-angle rotation matrix from the column's vertical pose.
+		k = np.cross([0,0,sz.L[0]],xyz)
+		if np.linalg.norm(k) != 0:
+			k = k/np.linalg.norm(k)
+
 		theta = sz.angle_between([0,0,sz.L[0]], xyz)
-		Xu = np.take(U, 0)
-        	Yu = np.take (U, 1)
-        	Zu = np.take(U,2)
+		Xk = k[0]
+		Yk = k[1]
+		Zk = k[2]
+		#print " k and theta are : "
+		#print k
+		#print theta
+		v = 1 - m.cos(theta)
+		R = np.array( [[m.cos(theta) + (Xk**2*v)   , (Xk*Yk*v) - (Zk*m.sin(theta)), (Xk*Zk*v) + Yk*m.sin(theta)],\
+					   [2*((Yk*Xk*v) + Zk*m.sin(theta)), m.cos(theta) + (Yk**2*v)     , (Yk*Zk*v) - Xk*m.sin(theta)],\
+					   [(Zk*Xk*v) - Yk*m.sin(theta), (Zk*Yk*v) + Xk*m.sin(theta)  , m.cos(theta) + (Zk**2*v)   ]])
+		print "cart2tether R is :"
+		print R
+		L0 = m.sqrt((xyz[0]**2+xyz[1]**2+xyz[2]**2)) # should just be sz.L[0] if not there is a math mistake
 
-      		R = np.matrix( [ [m.cos(theta)+Xu**2*(1-m.cos(theta)), Xu*Yu*(1-m.cos(theta))-Zu*m.sin(theta), Xu*Zu*(1-m.cos(theta)+ Yu*m.sin(theta))], \
-                               [Yu*Xu*(1-m.cos(theta)+Zu*m.sin(theta)), m.cos(theta)+Yu**2*(1-m.cos(theta)), Yu*Zu*(1-m.cos(theta)-Xu*m.sin(theta))], \
-                               [ Zu*Xu*(1-m.cos(theta))+Zu*m.sin(theta), Zu*Yu*(1-m.cos(theta))+Xu*m.sin(theta), m.cos(theta)+Zu**2*(1-m.cos(theta))] ])
-		
-		k = xyz[0]**2+xyz[1]**2+xyz[2]**2 #radius of sphere
-		L0 = k**0.5 # should just be sz.L[0] if not there is a math mistake
-		#extracts the position vectors of the base and column tether attachment points.  Probably the wrong way to do this
-		ef1 = sz.ef[1]  
-		ef2 = sz.ef[2]
-		ef3 = sz.ef[3]
-
-		p1 = sz.p[1]
-		p2 = sz.p[2]
-		p3 = sz.p[3]
 		#calculates position vector of the column tether attachment points in the world frame
-		OB1 = np.array([[xyz[0]],[xyz[1]],[xyz[2]]]) + R * np.array([[ef1[0]],[ef1[1]],[ef1[2]]])  
-		OB2 =np.array([[xyz[0]],[xyz[1]],[xyz[2]]]) + R * np.array([[ef2[0]],[ef2[1]],[ef2[2]]])		
-		OB3 = np.array([[xyz[0]],[xyz[1]],[xyz[2]]]) + R * np.array([[ef3[0]],[ef3[1]],[ef3[2]]])
-		#finds the norm of that 
-		L1 = np.linalg.norm(OB1 - np.array([[p1[0]],[p1[1]],[p1[2]]]))	
-		L2 = np.linalg.norm(OB2 - np.array([[p2[0]],[p2[1]],[p2[2]]]))
-		L3 = np.linalg.norm(OB3 - np.array([[p3[0]],[p3[1]],[p3[2]]]))
-			
+		OB1 = xyz + np.dot(R,sz.ef[1])  
+		OB2 = xyz + np.dot(R,sz.ef[2])		
+		OB3 = xyz + np.dot(R,sz.ef[3])
+
+		L1 = np.linalg.norm(OB1 - sz.p[1])
+		L2 = np.linalg.norm(OB2 - sz.p[2])
+		L3 = np.linalg.norm(OB3 - sz.p[3])
+
 		L = [L0,L1,L2,L3]
 		return L
 
-	def cart2tether(sz,xyz,col_fixed):
-		#convert a cartesian goal to tether length goals. assumes a very simple geometry
-		#Assumes tethers begin in the z=0 plane and end at the center of the end effector. Inaccuracies grow as arm length extends
-		#goal : 1x3 array [x,y,z]
-       		#col_fixed: logical 0 is fixed length sz 1 is free length sz (length is a free varible)
-       		# OUTPUT
-       		# L = 1x4 array [L0,L1,L2,L3] spiral zipper and each tether length
-		x = xyz[0]
-		y = xyz[1]
-		z = xyz[2]
-		#if half plane, ignore z
-		if col_fixed is True: #this is only used for initialization purposes
-			#back out tether lengths and
-			k = x**2+y**2+z**2 #radius of sphere
-			p0 = xyz #desiredposition (goal)
-			L0 = np.linalg.norm(xyz) # length of centre column
-        	
-			L1 = np.linalg.norm(sz.p[1]-p0)
-			L2 = np.linalg.norm(sz.p[2]-p0)
-			L3 = np.linalg.norm(sz.p[3]-p0)
-		elif col_fixed is False:
-			#use x and y to solve for what z should be then solve for L
-			z = (sz.L[0]**2-x**2-y**2)**0.5 #assume positive square root			
-			k = x**2+y**2+z**2 #radius of sphere
-			p0 = [x,y,z]
-			L0 = k**0.5 # should just be sz.L[0] if not there is a math mistake
-			L1 = np.linalg.norm(sz.p[1]-p0)
-			L2 = np.linalg.norm(sz.p[2]-p0)
-			L3 = np.linalg.norm(sz.p[3]-p0)
-			
-		else:
-			print 'error in cart2tether input for col_fixed'
+	def rotate(sz,p,q,r): # determines current orientation based on gravity data
+		# initial position vector
+		v = np.array([0,0,r])
+		# Euler angles in degrees from the sensor
+		# CCW +ve, CW -ve
+		#need to check how things fall here
+		#a =  (q) * pi/180  #-1.875
+		#b =  (p) * pi/180  #+.5
+		# Rotation matrix
+		#Ra = np.array([[1, 0 	  ,  0		 ],\
+		#			   [0, m.cos(a),-m.sin(a)],\
+		#			   [0, m.sin(a), m.cos(a)]])
+		#Rb = np.array([[ m.cos(b), 0 , m.sin(b)],\
+		#			  [  0		 , 1 , 0	   ],\
+		#			  [ -m.sin(b), 0 , m.cos(b)]])
+		#R = np.dot(Ra,Rb)
+		a = m.asin((q )/9.8)#  + .0875#gets angle and accounts for bias in IMU reading
+		b = m.asin((p )/9.8)#  + .01438
 
-		L = [L0,L1,L2,L3]
+		R = np.array([[ (m.cos(b))			  ,         0,  m.sin(b)			],\
+					   [(-m.sin(a))*(m.sin(b)),  m.cos(a), (m.sin(a))*(m.cos(b))],\
+					   [(-m.sin(b))*(m.cos(a)), -m.sin(a), (m.cos(a))*(m.cos(b))]])
+		print "rotate R : "
+		print R
+		new_v = np.dot(R,v)
 
-		return L
+		return new_v.T
 
 	def calc_L1(sz, l_state):  #this is probably an unnecessary calculation. get_xyz_pos trilaterates using this tether length.  It shouldn't.
 		#Trilateration should done using tether lengths 2 and 3, and the column length
@@ -639,27 +612,10 @@ class SpiralZipper:
 			avg = avg / size
 		return avg
 
-	def rotate(sz,p,q,r): # determines current orientation based on gravity data
-		# initial position vector
-		v = np.matrix([[0],[0],[r]])
-		# Euler angles in degrees from the sensor
-		# CCW +ve, CW -ve
-		#need to check how things fail here
-		a = m.asin(q/9.81)
-		b = m.asin(p/9.81)
-		# Rotation matrix
-		R = np.matrix([[           (m.cos(b)),         0,               m.sin(b)],
-		               [ (-m.sin(a))*(m.sin(b)),  m.cos(a), (m.sin(a))*(m.cos(b))],
-		               [(-m.sin(b))*(m.cos(a)),  -m.sin(a), (m.cos(a))*(m.cos(b))]])
-		new_v = R*v
-
-		A = np.array(new_v.T)[0]
-		return A
-
 	def angle_between(sz, v1, v2): #gets angle between two input vectors
         	v1_u = v1/np.linalg.norm(v1) # unit vectors
         	v2_u = v2/np.linalg.norm(v2)
-        	return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))  
+        	return np.arccos(np.dot(v1_u, v2_u))  
 
 	def get_xyz_pos(sz): #Performs Trilateration to get XYZ position
 	#assumes tethers begin in z=0 plane and end at the center of the end effector. Also is currently using the three tether lengths. It ought to use tethers 2 & 3 and the column length

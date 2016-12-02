@@ -15,11 +15,11 @@ def slack_remove(sz, c, armflag):
 		T2_slack=True
 		T3_slack=True
 		unwind_time=0.3
-		deflection_small=0.5
-		deflection_large=1.0
+		deflection_small=0.05
+		deflection_large=.10
 
 		grav = sz.get_sensor_readings(armflag) # read GRAVITY components
-		grav_comps = [grav[1],-1 * grav[2],grav[0]]
+		grav_comps = [grav[1],grav[2],grav[0]]
 		desired_comps = [0.0, 0.0, 9.8]
 		#STEP_1 remove slacks
 		if (grav_comps[1]<0): # leaning away from T1
@@ -32,12 +32,12 @@ def slack_remove(sz, c, armflag):
 			c.at.T3.set_torque(0)
 			#Wind T1 till deflection sensed => 				T1 slack removed.
 			grav_sensed_init = sz.get_sensor_readings(armflag) #read GRAVITY components
-			grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
+			#grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
 
 			pos_old = c.at.T7.get_pos()
 			while(T7_slack):
 				grav_sensed_curr = sz.get_sensor_readings(armflag) #read GRAVITY components 
-				grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
+				#grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
 
 				if(grav_sensed_curr[1]-grav_sensed_init[1] > deflection_small):
 					T4_slack=False
@@ -58,11 +58,11 @@ def slack_remove(sz, c, armflag):
 				#wind T2 till deflection sensed =>				T2 slack removed
 				pos_old = c.at.T2.get_pos()
 				grav_sensed_init = sz.get_sensor_readings(armflag) #read GRAVITY components 
-				grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
+				#grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
 
 				while(T2_slack):
 					grav_sensed_curr = sz.get_sensor_readings(armflag) #read GRAVITY components 
-					grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
+					#grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
 
 					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_large):
 						T2_slack=False
@@ -77,11 +77,11 @@ def slack_remove(sz, c, armflag):
 				#wind T3 till *small*deflection sensed =>		T3 slack removed
 				pos_old = c.at.T3.get_pos()
 				grav_sensed_init = sz.get_sensor_readings(armflag) #read GRAVITY components 
-				grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
+				#grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
 
 				while(T3_slack):
 					grav_sensed_curr = sz.get_sensor_readings(armflag) #read GRAVITY components 
-					grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
+					#grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
 			
 					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_small):
 						T3_slack=False
@@ -102,12 +102,12 @@ def slack_remove(sz, c, armflag):
 				
 				# wind T3 till deflection sensed =>				T3 slack removed
 				grav_sensed_init = sz.get_sensor_readings(armflag) #read GRAVITY components
-				grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
+				#grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
 			
 				pos_old = c.at.T3.get_pos()
 				while(T3_slack):
 					grav_sensed_curr = sz.get_sensor_readings(armflag) #read GRAVITY components
-					grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
+					#grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
 				 
 					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_large):
 						T3_slack=False
@@ -121,12 +121,12 @@ def slack_remove(sz, c, armflag):
 				c.at.T3.set_torque(0) #stop
 				# wind T2 till *small* deflection sensed =>		T2 slack removed
 				grav_sensed_init = sz.get_sensor_readings(armflag) #read GRAVITY components
-				grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
+				#grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
 		
 				pos_old = c.at.T2.get_pos()
 				while(T2_slack):
 					grav_sensed_curr = sz.get_sensor_readings(armflag) #read GRAVITY components
-					grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
+					#grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
 				 
 					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_small):
 						T2_slack=False
@@ -152,12 +152,12 @@ def slack_remove(sz, c, armflag):
 				
 				#wind T2 till deflection sensed =>				T2 slack removed
 				grav_sensed_init = sz.get_sensor_readings(armflag) #read GRAVITY components
-				grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
+				#grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
 			
 				pos_old = c.at.T2.get_pos()
 				while(T2_slack):
 					grav_sensed_curr = sz.get_sensor_readings(armflag) #read GRAVITY components
-					grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
+					#grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
 				 
 					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_large):
 						T2_slack=False
@@ -173,12 +173,15 @@ def slack_remove(sz, c, armflag):
 				
 				#wind T3 till *small* deflection sensed => 		T3 slack removed
 				grav_sensed_init = sz.get_sensor_readings(armflag) #read GRAVITY components
-				grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
+				#grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
 			
 				pos_old = c.at.T3.get_pos()
 				while(T3_slack):
 					grav_sensed_curr = sz.get_sensor_readings(armflag) #read GRAVITY components 
+					#grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
+
 					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_small):
+
 						T3_slack=False
 						print "T3 Slack removed."
 						break				
@@ -200,12 +203,12 @@ def slack_remove(sz, c, armflag):
 				
 				# wind T3 till deflection sensed =>				T3 slack removed
 				grav_sensed_init = sz.get_sensor_readings(armflag) #read GRAVITY components
-				grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
+				#grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
 			
 				pos_old = c.at.T3.get_pos()
 				while(T3_slack):
 					grav_sensed_curr = sz.get_sensor_readings(armflag) #read GRAVITY components 
-					grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
+					#grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
 
 					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_large):
 						T3_slack=False
@@ -219,12 +222,12 @@ def slack_remove(sz, c, armflag):
 				c.at.T3.set_torque(0) #stop
 				# wind T2 till *small* deflection sensed =>		T2 slack removed
 				grav_sensed_init = sz.get_sensor_readings(armflag) #read GRAVITY components
-				grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
+				#grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
 			
 				pos_old = c.at.T2.get_pos()
 				while(T2_slack):
 					grav_sensed_curr = sz.get_sensor_readings(armflag) #read GRAVITY components 
-					grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
+					#grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
 
 					if(abs(grav_sensed_curr[0]-grav_sensed_init[0]) > deflection_small):
 						T2_slack=False
@@ -239,12 +242,12 @@ def slack_remove(sz, c, armflag):
 			
 			#wind T7 till *small*deflection sensed =>		T7 slack removed
 			grav_sensed_init = sz.get_sensor_readings(armflag) #read GRAVITY components
-			grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
+			#grav_sensed_init = [grav_sensed_init[1],-1 * grav_sensed_init[2],grav_sensed_init[0]] 
 
 			pos_old = c.at.T7.get_pos()
 			while(T7_slack):
 				grav_sensed_curr = sz.get_sensor_readings(armflag) #read GRAVITY components 
-				grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
+				#grav_sensed_curr = [grav_sensed_curr[1],-1 * grav_sensed_curr[2],grav_sensed_curr[0]]
 
 				if(abs(grav_sensed_curr[1]-grav_sensed_init[1]) > deflection_small):
 					T7_slack=False

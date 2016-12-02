@@ -19,7 +19,7 @@ import spiral_zipper_auto as sz
 import ball_tracker as cm
 
 # Specify module ID and the name we want to give each of them:
-modules = {0xE4: 'T1',0xEA:'T2',0xE3:'T3',0xF8:'T4',0xF1:'T5',0xF2:'T6'}
+modules = {0xE4: 'T1',0xEA:'T2',0xDF:'T3',0xF8:'T4',0xF1:'T5',0xF2:'T6'}
 
 if __name__=="__main__":
 
@@ -52,7 +52,7 @@ if __name__=="__main__":
 
     start_pos = [0,0,0.30]
     current_goal = start_pos
-    r_winch = 0.0225 #radius of the pulleys on the motors
+    r_winch = 0.022 #radius of the pulleys on the motors
     looptime = .1
     sz1 = sz.SpiralZipper(start_pos, r_winch, c, looptime, 0)
     sz2 = sz.SpiralZipper(start_pos, r_winch, c, looptime, 1)
@@ -109,8 +109,8 @@ if __name__=="__main__":
     randompoint = cm.camera()
     print "the camera's target is :" 
     print randompoint
-    end_effector_old = np.matrix([[.25],[0],[.4]])
-    end_effector_des = np.matrix([[.25],[0],[.4]])
+    end_effector_old = np.array([.25,0,.4])
+    end_effector_des = np.array([.25,0,.4])
    # data = open('/home/modlab/Desktop/data.txt','w')
     #big_list = np.array([[1, 2, 3]])
 
@@ -139,19 +139,19 @@ if __name__=="__main__":
 				if evt.button is 0: #toggles arm from remote control into autonomous control mode
 					if mode == 0: 
 						mode = 1
-						target_pos = np.matrix([[.25], [0.00], [.35]])
+						target_pos = np.array([.25, 0.00, .35])
 					else:
 						mode = 0
 				elif evt.button is 1: #switches arm into camera tracking mode
 					mode = 2 
 				elif evt.button is 2: #sets a desired position in auto control mode
 					mode = 1 
-					target_pos = np.matrix([[.25], [0.05], [.45]])
+					target_pos = np.array([.25, 0.05, .45])
 					yaw_des = 0
 					pitch_des = 0
 				elif evt.button is 3: #sets a desired position in auto control mode
 					mode = 1
-					target_pos = np.matrix([[.35], [-.05], [.35]])
+					target_pos = np.array([.35, -.05, .35])
 					yaw_des = 0
 					pitch_des = -.1
 
@@ -193,7 +193,7 @@ if __name__=="__main__":
 
 			#The robot state machine
 			if mode == 0: #remote control 
-				sz1.update_goal([-x1_move*Kx ,y1_move*Ky, z1_move*Kz ], mode)  #input sets a desired velocity for the system in xyz				
+				sz1.update_goal([-x1_move*Kx ,y1_move*Ky, z1_move*Kz], mode)  #input sets a desired velocity for the system in xyz				
 				sz2.update_goal([-x2_move*Kx,y2_move*Ky,z2_move*Kz],mode)
 				remote_or_auto = 0
 
@@ -221,20 +221,20 @@ if __name__=="__main__":
 				print end_effector_des
 
 			elif mode == 3: #Grab and move object mode.  Arm grabs an object and moves it to a set location
-				end_effector_des = np.matrix([[.35], [0.15], [.45]])
+				end_effector_des = np.array([.35, 0.15, .45])
 				if abs(np.linalg.norm(end_effector_des - end_effector_pos)) < .01: #conditions that determines whether the arm has successfully grabbed an object
 					mode = 4
 					sz1.vacuum_cleaner()
 
 			elif mode == 4: #Drop object at target location. Return to zero position
-				end_effector_des = np.matrix([[.40], [0.20], [.45]])
+				end_effector_des = np.array([.40, 0.20, .45])
 				yaw = .1
 				pitch = -.1
 				if abs(np.linalg.norm(end_effector_des - end_effector_pos)) < .01: #conditions that determines whether the arm has successfully grabbed an object
 					mode = 1
 
 			elif mode == 5: #Drop object at target location. Return to upright high position
-				end_effector_des = np.matrix([[.25], [0.0], [.45]])
+				end_effector_des = np.array([.25, 0.0, .45])
 				yaw = 0
 				if abs(np.linalg.norm(end_effector_des - end_effector_pos)) < .005: #conditions that determines whether the arm has successfully grabbed an object
 					mode = 1

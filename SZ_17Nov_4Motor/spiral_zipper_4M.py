@@ -180,9 +180,10 @@ class SpiralZipper:
 		#sz.data_store_predict = open("SZ_DATA_predict.txt", "w")
 		#sz.data_store_measurement = open("SZ_DATA_measurement.txt", "w")
 		#sz.data_store_estimate = open("SZ_DATA_estimate.txt", "w")
-		if armflag == 0:
+		#if armflag == 0:
 		slack.slack_remove(sz,c, 0)
-		#slack.slack_remove(sz,c, 1)
+		#if armflag == 1:
+			#slack.slack_remove(sz,c, 1)
 
 
 	def vacuum_cleaner(sz):  #sends a command to the arduino that controls the vacuum.  Toggles it on and off
@@ -254,8 +255,8 @@ class SpiralZipper:
 			print "IMU data is : "
 			print rotation		
 		sz.L[0] = sz.L[0] - dtheta[0] * 0.00955 #0.06/(2*3.14159)  #change in column height is 16 cm/rev of the column. 2.666 motor revs/column
-		#sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
-		sz.sensed_pos = sz.rotate(rotation[1],rotation[2],sz.L[0])
+		sz.sensed_pos = sz.rotate(rotation[0],rotation[1],sz.L[0])
+		#sz.sensed_pos = sz.rotate(rotation[1],rotation[2],sz.L[0])
 
 		sz.L = sz.cart2tether_actual(sz.sensed_pos)  #tether length update based on IMU only
 
@@ -414,21 +415,22 @@ class SpiralZipper:
 		# Euler angles in degrees from the sensor
 		# CCW +ve, CW -ve
 		#need to check how things fall here
-		a =  (q) * pi/180#-1.875
-		b =  (p) * pi/180#+.5
-		#a = m.asin((q )/9.8)  + .0875#gets angle and accounts for bias in IMU reading
-		#b = m.asin((p )/9.8)  + .01438
-		# Rotation matrix'
-		Ra = np.array([[1, 0 	  ,  0		 ],\
-					   [0, m.cos(a),-m.sin(a)],\
-					   [0, m.sin(a), m.cos(a)]])
-		Rb = np.array([[ m.cos(b), 0 , m.sin(b)],\
-					  [  0		 , 1 , 0	   ],\
-					  [ -m.sin(b), 0 , m.cos(b)]])
-		R = np.dot(Ra,Rb)
-		#R = np.array([[ (m.cos(b))			  ,         0,  m.sin(b)			],\
-		#			   [(-m.sin(a))*(m.sin(b)),  m.cos(a), (m.sin(a))*(m.cos(b))],\
-		#			   [(-m.sin(b))*(m.cos(a)), -m.sin(a), (m.cos(a))*(m.cos(b))]])
+		#a =  (q) * pi/180  #-1.875
+		#b =  (p) * pi/180  #+.5
+		# Rotation matrix
+		#Ra = np.array([[1, 0 	  ,  0		 ],\
+		#			   [0, m.cos(a),-m.sin(a)],\
+		#			   [0, m.sin(a), m.cos(a)]])
+		#Rb = np.array([[ m.cos(b), 0 , m.sin(b)],\
+		#			  [  0		 , 1 , 0	   ],\
+		#			  [ -m.sin(b), 0 , m.cos(b)]])
+		#R = np.dot(Ra,Rb)
+		a = m.asin((q )/9.8)#  + .0875#gets angle and accounts for bias in IMU reading
+		b = m.asin((p )/9.8)#  + .01438
+
+		R = np.array([[ (m.cos(b))			  ,         0,  m.sin(b)			],\
+					   [(-m.sin(a))*(m.sin(b)),  m.cos(a), (m.sin(a))*(m.cos(b))],\
+					   [(-m.sin(b))*(m.cos(a)), -m.sin(a), (m.cos(a))*(m.cos(b))]])
 		print "rotate R : "
 		print R
 		new_v = np.dot(R,v)

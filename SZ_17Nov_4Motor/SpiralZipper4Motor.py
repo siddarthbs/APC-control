@@ -90,9 +90,9 @@ if __name__=="__main__":
 	sz2.set_Kp_Gains(Kp,1)
 	sz2.set_Ki_Gains(Ki,1)
 	#### Gains for Joystick ####
-	Kx = 0.015 
-	Ky = 0.015 
-	Kz = 0.002
+	Kx = 0.025 
+	Ky = 0.025 
+	Kz = 0.0025
     
 	print "Spiral Zipper demo initialized"
 	drivable = True

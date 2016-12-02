@@ -1,1 +1,4 @@
 This folder is the most recent joystick controller I've written.  It completely rewrites the system to only handle encoder inputs after the initialization step.  The added speed lets me run a velocity controller on the joystick inputs.  The system is currently using only P control. I may change this later.  This also has a better xyL input control model than SZ_26Sept_Joystick2.  This is the current master branch.
+
+The main function is in SpiralZipperJoy2.py
+The header functions are in spiral_zipper_joy.py
