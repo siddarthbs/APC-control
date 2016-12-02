@@ -1,0 +1,10 @@
+This folder contains joystick control for two spiral zipper arms connected by a vacuum cleaner tube. which acts as another link.  The end of this tube has a suction gripper which can be used to manipulate the environment. The code allows the user to switch the robot into autonomous mode where the system uses an XBOX Kinect to find objects for the arm to grab.
+
+The main function is in SpiralZipperAuto.py
+The header functions are in spiral_zipper_auto.py
+The kinect function is in ball_tracker.py
+The kinect uses a helper function in Rectification.py
+
+The code takes inputs from a LIDAR and IMU sensor to initialize the arms. It then updates the position of the arm based on accelerometer data from the IMU  and encoders on the motor.  Once the arm positions are known, the forward kinematics can be used to determine the position of the suction gripper in cartesian space.  
+In Joystick Mode, the user inputs desired step inputs to the gripper's position.  The input is then compared against the current measured position to create a vector.  The vector is then scaled so that none of the arm's joint torques max out. This ensures smooth motion from one position to another, even if the desired step is large. 
+In Autonomous Mode the camera finds the largest blue object in view and calculates it's position in the World frame.  This position is then fed into the robot's control system as the desired position.  When in Autonomous Mode the robot follows a state machine to move through a series of positions after it successfully grabs the object so that it will deposit the object in a box next to the robot.

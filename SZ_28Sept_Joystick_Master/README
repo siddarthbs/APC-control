@@ -1,4 +1,5 @@
-This folder is the most recent joystick controller I've written.  It completely rewrites the system to only handle encoder inputs after the initialization step.  The added speed lets me run a velocity controller on the joystick inputs.  The system is currently using only P control. I may change this later.  This also has a better xyL input control model than SZ_26Sept_Joystick2.  This is the current master branch.
-
+This folder contains joystick control for two spiral zipper arms. 
 The main function is in SpiralZipperJoy2.py
 The header functions are in spiral_zipper_joy.py
+
+The code takes inputs from a LIDAR and IMU sensor to initialize the arms. It then updates the position of the arm based on accelerometer data from the IMU  and encoders on the motor.  The user inputs desired step inputs to the system.  The input is then compared against the current measured position to create a vector.  The vector is then scaled so that none of the arm's joint torques max out. This ensures smooth motion from one position to another, even if the desired step is large. 
