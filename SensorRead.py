@@ -21,4 +21,3 @@ while True:
         	 pass
 	print l
 #return l
-
